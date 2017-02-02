@@ -34,6 +34,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
     printf("error_in_stack = %d\n", dueinfo->error_in_stack);
     printf("error_in_text = %d\n", dueinfo->error_in_text);
     printf("error_in_data = %d\n", dueinfo->error_in_data);
+    printf("error_in_sdata = %d\n", dueinfo->error_in_sdata);
     printf("error_in_bss = %d\n", dueinfo->error_in_bss);
     printf("error_in_heap = %d\n", dueinfo->error_in_heap);
 
@@ -66,6 +67,7 @@ void memory_due_handler_entry(trapframe_t* tf) {
     user_recovery_context.error_in_stack = 0;
     user_recovery_context.error_in_text = 0;
     user_recovery_context.error_in_data = 0;
+    user_recovery_context.error_in_sdata = 0;
     user_recovery_context.error_in_bss = 0;
     user_recovery_context.error_in_heap = 0;
 
@@ -85,6 +87,8 @@ void memory_due_handler_entry(trapframe_t* tf) {
         user_recovery_context.error_in_text = 1;
     if (tf->badvaddr >= (long)(&_fdata) && tf->badvaddr < (long)(&_edata))
         user_recovery_context.error_in_data = 1;
+    if (tf->badvaddr >= (long)(&_edata) && tf->badvaddr < (long)(&_fbss))
+        user_recovery_context.error_in_sdata = 1;
     if (tf->badvaddr >= (long)(&_fbss) && tf->badvaddr < (long)(&_end))
         user_recovery_context.error_in_bss = 1;
     user_recovery_context.error_in_heap = 0; //TODO

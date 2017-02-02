@@ -22,6 +22,7 @@ typedef struct {
     int error_in_stack;
     int error_in_text;
     int error_in_data;
+    int error_in_sdata;
     int error_in_bss;
     int error_in_heap;
 } dueinfo_t;

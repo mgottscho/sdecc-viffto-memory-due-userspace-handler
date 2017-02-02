@@ -78,6 +78,7 @@ void my_due_handler(dueinfo_t *recovery_context) {
     mydue.error_in_stack = recovery_context->error_in_stack;
     mydue.error_in_text = recovery_context->error_in_text;
     mydue.error_in_data = recovery_context->error_in_data;
+    mydue.error_in_sdata = recovery_context->error_in_sdata;
     mydue.error_in_bss = recovery_context->error_in_bss;
     mydue.error_in_heap = recovery_context->error_in_heap;
 
