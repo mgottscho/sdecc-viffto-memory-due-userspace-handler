@@ -8,6 +8,9 @@
 #include <stdint.h>
 
 user_trap_handler g_user_trap_fptr = &default_user_memory_due_trap_handler;
+void* g_due_trap_region_pc_start = NULL;
+void* g_due_trap_region_pc_end = NULL;
+int g_restart_due_region = 0;
 
 void dump_tf(trapframe_t* tf)
 {
@@ -29,6 +32,13 @@ void dump_tf(trapframe_t* tf)
          (uint32_t)tf->insn, tf->status);
 }
 
+void panic() {
+    do {
+        ;
+    }
+    while(1);
+}
+
 void dump_dueinfo(dueinfo_t* dueinfo) {
     dump_tf(&(dueinfo->tf));
     printf("error_in_stack = %d\n", dueinfo->error_in_stack);
@@ -46,8 +56,15 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
     printf("_end: %p\n", &_end);
 }
 
-void register_user_memory_due_trap_handler(user_trap_handler fptr) {
+void register_user_memory_due_trap_handler(user_trap_handler fptr, void* pc_start, void* pc_end) {
+    //Save necessary global user state
     g_user_trap_fptr = fptr;
+    g_due_trap_region_pc_start = pc_start;
+    g_due_trap_region_pc_end = pc_end;
+
+    /*printf("pc_start: %p\n", pc_start);
+    printf("pc_end: %p\n", pc_end);*/
+
     trap_handler entry_trap_fptr = &memory_due_handler_entry;
     asm volatile("or a0, zero, %0;" //Load default entry trap handler fptr into register a0
                  "li a7, 447;" //Load syscall number 447 (SYS_register_user_memory_due_trap_handler) into register a7
@@ -57,7 +74,9 @@ void register_user_memory_due_trap_handler(user_trap_handler fptr) {
 }
 
 void default_user_memory_due_trap_handler(dueinfo_t* recovery_context) {
-    //Do nothing.
+    dump_dueinfo(recovery_context);
+    //panic("Memory DUE trap: offending program counter 0x%p is not within any registered user PC range (0x%p to 0x%p)\n", tf->epc, g_due_trap_region_pc_start, g_due_trap_region_pc_end);
+    //panic();
 }
 
 void memory_due_handler_entry(trapframe_t* tf) {
@@ -93,7 +112,11 @@ void memory_due_handler_entry(trapframe_t* tf) {
         user_recovery_context.error_in_bss = 1;
     user_recovery_context.error_in_heap = 0; //TODO
 
-    //Call user handler
-    g_user_trap_fptr(&user_recovery_context);
+    //Call user handler if PC in error occurred in the registered PC range
+    if (tf->epc >= g_due_trap_region_pc_start && tf->epc < g_due_trap_region_pc_end)
+        g_user_trap_fptr(&user_recovery_context);
+    else { //Otherwise, revert to default handler
+        default_user_memory_due_trap_handler(&user_recovery_context);
+    }
 }
 
