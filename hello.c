@@ -7,17 +7,17 @@
 
 #include <stdio.h>
 #include "memory_due.h" 
-volatile float x[10000000];
-volatile float y[10000000];
+
+#define ARRAY_SIZE 10000000
+volatile float x[ARRAY_SIZE];
+volatile float y[ARRAY_SIZE];
 
 dueinfo_t mydue;
-void* maddr = NULL;
-void* baddr = NULL;
-void* xaddr_s = NULL;
-void* xaddr_e = NULL;
-void* yaddr_s = NULL;
-void* yaddr_e = NULL;
-void* iaddr = NULL;
+DECL_RECOVERY(m,main)
+DECL_RECOVERY(b,main)
+DECL_RECOVERY(i,main)
+DECL_RECOVERY_OBJ(x,main)
+DECL_RECOVERY_OBJ(y,main)
 
 int test2 = 0;
 int test3 = 0;
@@ -31,15 +31,13 @@ int main(int argc, char** argv) {
     float m,b;
     int i;
     
-    maddr = (void*)(&m);
-    baddr = (void*)(&b);
-    xaddr_s = (void*)(x);
-    xaddr_e = (void*)(x+10000000);
-    yaddr_s = (void*)(y);
-    yaddr_e = (void*)(y+10000000);
-    iaddr = (void*)(&i);
+    EN_RECOVERY(m,main)
+    EN_RECOVERY(b,main)
+    EN_RECOVERY(i,main)
+    EN_RECOVERY_OBJ(x,main,ARRAY_SIZE*sizeof(float))
+    EN_RECOVERY_OBJ(y,main,ARRAY_SIZE*sizeof(float))
 
-    REGION_DUE_HANDLE_START(&my_due_handler)
+    BEGIN_DUE_RECOVERY(&my_due_handler)
     m = 2;
     b = 0;
     i = 0;
@@ -49,7 +47,7 @@ int main(int argc, char** argv) {
     for (i = 0; i < 10000000; i++) {
         y[i] = m*x[i]+b;
     }
-    REGION_DUE_HANDLE_END
+    END_DUE_RECOVERY
 
     dump_dueinfo(&mydue);
     printf("test2 = %d\n", test2);
@@ -72,15 +70,17 @@ int my_due_handler(dueinfo_t *recovery_context) {
     mydue.error_in_bss = recovery_context->error_in_bss;
     mydue.error_in_heap = recovery_context->error_in_heap;
 
-    if ((void*)(mydue.tf.badvaddr) >= xaddr_s && (void*)(mydue.tf.badvaddr) < xaddr_e)
+    void* badvaddr = (void*)(mydue.tf.badvaddr); //Cast for convenience and easier to read
+
+    if (badvaddr >= RECOVERY_ADDR(x,main) && badvaddr < RECOVERY_END_ADDR(x,main))
         test2 = 1;
-    if ((void*)(mydue.tf.badvaddr) >= yaddr_s && (void*)(mydue.tf.badvaddr) < yaddr_e)
+    if (badvaddr >= RECOVERY_ADDR(y,main) && badvaddr < RECOVERY_END_ADDR(y,main))
         test3 = 1;
-    if ((void*)(mydue.tf.badvaddr) == maddr)
+    if (badvaddr == RECOVERY_ADDR(m,main))
         test4 = 1;
-    if ((void*)(mydue.tf.badvaddr) == baddr)
+    if (badvaddr == RECOVERY_ADDR(b,main))
         test5 = 1;
-    if ((void*)(mydue.tf.badvaddr) == iaddr)
+    if (badvaddr == RECOVERY_ADDR(i,main))
         test6 = 1;
 
     /******* User-defined recovery begins here ********/
@@ -89,4 +89,3 @@ int my_due_handler(dueinfo_t *recovery_context) {
 
     return 0;
 }
-    
