@@ -8,84 +8,87 @@
 #include <stdio.h>
 #include "memory_due.h" 
 
-#define ARRAY_SIZE 10000000
-volatile float x[ARRAY_SIZE];
-volatile float y[ARRAY_SIZE];
+#define ARRAY_SIZE 100000000
 
-dueinfo_t mydue;
-DECL_RECOVERY(m,main)
-DECL_RECOVERY(b,main)
-DECL_RECOVERY(i,main)
-DECL_RECOVERY_OBJ(x,main)
-DECL_RECOVERY_OBJ(y,main)
+typedef struct {
+    float val1;
+    int val2;
+} foo_t;
 
-int test2 = 0;
-int test3 = 0;
-int test4 = 0;
-int test5 = 0;
-int test6 = 0;
+volatile foo_t x[ARRAY_SIZE];
+volatile foo_t y[ARRAY_SIZE];
 
-int my_due_handler(dueinfo_t *recovery_context);
+DECL_DUE_INFO(main, 1)
+DECL_DUE_INFO(main, 2)
+DECL_RECOVERY_PRIMITIVE(main,m)
+DECL_RECOVERY_PRIMITIVE(main,b)
+DECL_RECOVERY_PRIMITIVE(main,i)
+DECL_RECOVERY_OBJECT(main,x)
+DECL_RECOVERY_OBJECT(main,y)
+
+int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context);
+int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context);
 
 int main(int argc, char** argv) {
     float m,b;
     int i;
     
-    EN_RECOVERY(m,main)
-    EN_RECOVERY(b,main)
-    EN_RECOVERY(i,main)
-    EN_RECOVERY_OBJ(x,main,ARRAY_SIZE*sizeof(float))
-    EN_RECOVERY_OBJ(y,main,ARRAY_SIZE*sizeof(float))
+    EN_RECOVERY_PRIMITIVE(main,m)
+    EN_RECOVERY_PRIMITIVE(main,b)
+    EN_RECOVERY_PRIMITIVE(main,i)
+    EN_RECOVERY_OBJECT(main,x,ARRAY_SIZE*sizeof(foo_t))
+    EN_RECOVERY_OBJECT(main,y,ARRAY_SIZE*sizeof(foo_t))
 
-    BEGIN_DUE_RECOVERY(&my_due_handler)
+    BEGIN_DUE_RECOVERY(main, 1)
     m = 2;
     b = 0;
     i = 0;
-    for (i = 0; i < 10000000; i++) {
-        x[i] = i;
+    for (i = 0; i < ARRAY_SIZE; i++) {
+        x[i].val1 = (float)(i);
+        x[i].val2 = i;
     }
-    for (i = 0; i < 10000000; i++) {
-        y[i] = m*x[i]+b;
-    }
-    END_DUE_RECOVERY
+    END_DUE_RECOVERY(main, 1)
 
-    dump_dueinfo(&mydue);
-    printf("test2 = %d\n", test2);
-    printf("test3 = %d\n", test3);
-    printf("test4 = %d\n", test4);
-    printf("test5 = %d\n", test5);
-    printf("test6 = %d\n", test6);
-    
+    dump_dueinfo(&DUE_INFO(main, 1));
+    DUE_IN_PRINTF(main, 1, x)
+    DUE_IN_PRINTF(main, 1, y)
+    DUE_AT_PRINTF(main, 1, m)
+    DUE_AT_PRINTF(main, 1, b)
+    DUE_AT_PRINTF(main, 1, i)
+
+    BEGIN_DUE_RECOVERY(main, 2)
+    for (i = 0; i < ARRAY_SIZE; i++) {
+        y[i].val1 = m*x[i].val1+b;
+        y[i].val2 = m*x[i].val2+b;
+    }
+    END_DUE_RECOVERY(main, 2)
+  
+    dump_dueinfo(&DUE_INFO(main, 2));
+    DUE_IN_PRINTF(main, 2, x)
+    DUE_IN_PRINTF(main, 2, y)
+    DUE_AT_PRINTF(main, 2, m)
+    DUE_AT_PRINTF(main, 2, b)
+    DUE_AT_PRINTF(main, 2, i)
+
     printf("Hello World!\n");
     return 0;
 }
 
-int my_due_handler(dueinfo_t *recovery_context) {
-    mydue.tf = recovery_context->tf;
-    mydue.valid_tf = recovery_context->valid_tf;
-    mydue.error_in_stack = recovery_context->error_in_stack;
-    mydue.error_in_text = recovery_context->error_in_text;
-    mydue.error_in_data = recovery_context->error_in_data;
-    mydue.error_in_sdata = recovery_context->error_in_sdata;
-    mydue.error_in_bss = recovery_context->error_in_bss;
-    mydue.error_in_heap = recovery_context->error_in_heap;
-
-    void* badvaddr = (void*)(mydue.tf.badvaddr); //Cast for convenience and easier to read
-
-    if (badvaddr >= RECOVERY_ADDR(x,main) && badvaddr < RECOVERY_END_ADDR(x,main))
-        test2 = 1;
-    if (badvaddr >= RECOVERY_ADDR(y,main) && badvaddr < RECOVERY_END_ADDR(y,main))
-        test3 = 1;
-    if (badvaddr == RECOVERY_ADDR(m,main))
-        test4 = 1;
-    if (badvaddr == RECOVERY_ADDR(b,main))
-        test5 = 1;
-    if (badvaddr == RECOVERY_ADDR(i,main))
-        test6 = 1;
-
+int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
+    COPY_DUE_INFO(main, 1, recovery_context)
+    
     /******* User-defined recovery begins here ********/
     g_restart_due_region = 1;
-    /****************/
 
+    //Return 0 to indicate successful recovery.
     return 0;
+}
+
+int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
+    COPY_DUE_INFO(main, 2, recovery_context)
+    
+    /******* User-defined recovery begins here ********/
+
+    //Return 0 to indicate successful recovery.
+    return 1;
 }
