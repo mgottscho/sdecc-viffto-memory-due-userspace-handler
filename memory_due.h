@@ -23,6 +23,21 @@ typedef struct {
     int error_in_heap;
 } dueinfo_t;
 
+typedef struct {
+    char[8] word;
+} word_t;
+
+typedef struct {
+    word_t* words;
+    int linesz;
+    int blockpos;
+} due_cacheline_t;
+
+typedef struct {
+    word_t* candidate_messages;
+    int num_candidate_messages;
+} due_candidates_t;
+
 typedef int (*user_defined_trap_handler)(dueinfo_t* recovery_context); 
 
 #define STR(x) #x
