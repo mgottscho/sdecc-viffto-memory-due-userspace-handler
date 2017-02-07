@@ -102,6 +102,11 @@ typedef int (*user_defined_trap_handler)(dueinfo_t* recovery_context);
     if (DUE_IN(fname, seqnum, variable)) \
         printf("DUE in %s(), PC %p, memory address %p, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
 
+#define INJECT_DUE_INSTRUCTION \
+    asm volatile("custom0 0,0,0,0;");
+
+#define INJECT_DUE_DATA \
+    asm volatile("custom1 0,0,0,0;");
 
 //Useful symbols defined by the RISC-V linker script
 extern void* _ftext; //Front of code segment

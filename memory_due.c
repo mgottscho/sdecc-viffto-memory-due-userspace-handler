@@ -73,7 +73,7 @@ int memory_due_handler_entry(trapframe_t* tf) {
         user_recovery_context.tf.insn = tf->insn;
 
         //Determine in which segment the memory DUE occured
-        if (tf->badvaddr >= tf->gpr[2]-1024 && tf->badvaddr < tf->gpr[2]+1024) //gpr[2] is sp
+        if (tf->badvaddr >= tf->gpr[2]-1024 && tf->badvaddr < tf->gpr[2]+1024) //gpr[2] is sp. FIXME: how to find size of stack frame dynamically, or otherwise find the base of stack?
             user_recovery_context.error_in_stack = 1;
         if ((void*)(tf->badvaddr) >= _ftext && (void*)(tf->badvaddr) < _etext)
             user_recovery_context.error_in_text = 1;

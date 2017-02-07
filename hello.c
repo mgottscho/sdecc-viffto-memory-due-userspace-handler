@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "memory_due.h" 
 
-#define ARRAY_SIZE 100000000
+#define ARRAY_SIZE 10000000
 
 typedef struct {
     float val1;
@@ -32,7 +32,7 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context);
 int main(int argc, char** argv) {
     float m,b;
     int i;
-    
+   
     EN_RECOVERY_PRIMITIVE(main,m)
     EN_RECOVERY_PRIMITIVE(main,b)
     EN_RECOVERY_PRIMITIVE(main,i)
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         x[i].val2 = i;
     }
     END_DUE_RECOVERY(main, 1)
-
+    
     dump_dueinfo(&DUE_INFO(main, 1));
     DUE_IN_PRINTF(main, 1, x)
     DUE_IN_PRINTF(main, 1, y)
@@ -58,11 +58,13 @@ int main(int argc, char** argv) {
 
     BEGIN_DUE_RECOVERY(main, 2)
     for (i = 0; i < ARRAY_SIZE; i++) {
+        if (i == 100)
+            INJECT_DUE_DATA
         y[i].val1 = m*x[i].val1+b;
         y[i].val2 = m*x[i].val2+b;
     }
     END_DUE_RECOVERY(main, 2)
-  
+
     dump_dueinfo(&DUE_INFO(main, 2));
     DUE_IN_PRINTF(main, 2, x)
     DUE_IN_PRINTF(main, 2, y)
