@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         x[i].val2 = i;
     }
     END_DUE_RECOVERY(main, 1)
-    
+   
     dump_dueinfo(&DUE_INFO(main, 1));
     DUE_IN_PRINTF(main, 1, x)
     DUE_IN_PRINTF(main, 1, y)
@@ -80,7 +80,7 @@ int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
     COPY_DUE_INFO(main, 1, recovery_context)
     
     /******* User-defined recovery begins here ********/
-    g_restart_due_region = 1;
+    //g_restart_due_region = 1;
 
     //Return 0 to indicate successful recovery.
     return 0;
@@ -92,5 +92,5 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
     /******* User-defined recovery begins here ********/
 
     //Return 0 to indicate successful recovery.
-    return 1;
+    return 0;
 }

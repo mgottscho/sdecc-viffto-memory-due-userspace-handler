@@ -14,31 +14,19 @@ extern int g_restart_due_region;
 
 typedef struct {
     trapframe_t tf;
-    int valid_tf;
+    int valid;
     int error_in_stack;
     int error_in_text;
     int error_in_data;
     int error_in_sdata;
     int error_in_bss;
     int error_in_heap;
+    due_candidates_t candidates;
+    due_cacheline_t cacheline;
 } dueinfo_t;
 
-typedef struct {
-    char[8] word;
-} word_t;
 
-typedef struct {
-    word_t* words;
-    int linesz;
-    int blockpos;
-} due_cacheline_t;
-
-typedef struct {
-    word_t* candidate_messages;
-    int num_candidate_messages;
-} due_candidates_t;
-
-typedef int (*user_defined_trap_handler)(dueinfo_t* recovery_context); 
+typedef int (*user_defined_trap_handler)(dueinfo_t*);
 
 #define STR(x) #x
 #define STRINGIFY(x) STR(x)
@@ -95,13 +83,15 @@ typedef int (*user_defined_trap_handler)(dueinfo_t* recovery_context);
 
 #define COPY_DUE_INFO(fname, seqnum, src) \
     DUE_INFO(fname, seqnum).tf = src->tf; \
-    DUE_INFO(fname, seqnum).valid_tf = src->valid_tf; \
+    DUE_INFO(fname, seqnum).valid = src->valid; \
     DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
     DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
     DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
     DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
     DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
     DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
+    DUE_INFO(fname, seqnum).candidates = src->candidates; \
+    DUE_INFO(fname, seqnum).cacheline = src->cacheline; \
 
 #define DUE_AT(fname, seqnum, variable) \
     (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) == RECOVERY_ADDR(fname, variable)
@@ -123,6 +113,7 @@ typedef int (*user_defined_trap_handler)(dueinfo_t* recovery_context);
 #define INJECT_DUE_DATA \
     asm volatile("custom1 0,0,0,0;");
 
+
 //Useful symbols defined by the RISC-V linker script
 extern void* _ftext; //Front of code segment
 extern void* _etext; //End of code segment
@@ -133,5 +124,8 @@ extern void* _end; //End of uninitialized data segment... and address space over
 
 void dump_dueinfo(dueinfo_t* dueinfo);
 void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end);
-int memory_due_handler_entry(trapframe_t* tf);
+int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline);
+
+void dump_candidate_messages(due_candidates_t* cd);
+void dump_cacheline(due_cacheline_t* cl);
 #endif
