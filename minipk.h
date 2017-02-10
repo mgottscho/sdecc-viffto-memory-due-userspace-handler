@@ -23,14 +23,13 @@ typedef struct {
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    word_t* candidate_messages;
+    word_t candidate_messages[32];
     int num_candidate_messages;
 } due_candidates_t;
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    word_t* words;
-    int linesz;
+    word_t words[8];
     int blockpos;
 } due_cacheline_t;
 
