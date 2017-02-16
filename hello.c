@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "memory_due.h" 
 
-#define ARRAY_SIZE 100
+#define ARRAY_SIZE 10000
 
 typedef struct {
     float val1;
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
     for (i = 0; i < ARRAY_SIZE; i++) {
         tmp = m*x[i].val1;
         if (i == 50)
-            INJECT_DUE_DATA
+            INJECT_DUE_DATA(0,0)
         tmp2 = tmp+b;
         y[i].val1 = tmp2;
         //y[i].val1 = m*x[i].val1+b;
