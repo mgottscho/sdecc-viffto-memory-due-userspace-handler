@@ -114,11 +114,11 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     //Call user handler if PC in error occurred in the registered PC range
     if ((void*)(tf->epc) >= g_due_trap_region_pc_start && (void*)(tf->epc) < g_due_trap_region_pc_end) {
         if (g_user_trap_fptr) {
-            g_user_trap_fptr(&user_recovery_context);
-            return 0;
+            return g_user_trap_fptr(&user_recovery_context);
         }
     }
-    return 1;
+
+    return -1;
 }
 
 void dump_candidate_messages(due_candidates_t* cd) {

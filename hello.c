@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "memory_due.h" 
 
-#define ARRAY_SIZE 10000000
+#define ARRAY_SIZE 100
 
 typedef struct {
     float val1;
@@ -23,6 +23,8 @@ DECL_DUE_INFO(main, 2)
 DECL_RECOVERY_PRIMITIVE(main,m)
 DECL_RECOVERY_PRIMITIVE(main,b)
 DECL_RECOVERY_PRIMITIVE(main,i)
+DECL_RECOVERY_PRIMITIVE(main,tmp)
+DECL_RECOVERY_PRIMITIVE(main,tmp2)
 DECL_RECOVERY_OBJECT(main,x)
 DECL_RECOVERY_OBJECT(main,y)
 
@@ -32,10 +34,15 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context);
 int main(int argc, char** argv) {
     float m,b;
     int i;
+    char padding[64]; //To prevent DUE injection on tmp variables from impacting loop variable i for experiments
+    int tmp, tmp2;
+    char padding2[64]; //To prevent DUE injection on tmp variables from impacting loop variable i for experiments
    
     EN_RECOVERY_PRIMITIVE(main,m)
     EN_RECOVERY_PRIMITIVE(main,b)
     EN_RECOVERY_PRIMITIVE(main,i)
+    EN_RECOVERY_PRIMITIVE(main,tmp)
+    EN_RECOVERY_PRIMITIVE(main,tmp2)
     EN_RECOVERY_OBJECT(main,x,ARRAY_SIZE*sizeof(foo_t))
     EN_RECOVERY_OBJECT(main,y,ARRAY_SIZE*sizeof(foo_t))
 
@@ -58,9 +65,12 @@ int main(int argc, char** argv) {
 
     BEGIN_DUE_RECOVERY(main, 2)
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (i == 100)
+        tmp = m*x[i].val1;
+        if (i == 50)
             INJECT_DUE_DATA
-        y[i].val1 = m*x[i].val1+b;
+        tmp2 = tmp+b;
+        y[i].val1 = tmp2;
+        //y[i].val1 = m*x[i].val1+b;
         y[i].val2 = m*x[i].val2+b;
     }
     END_DUE_RECOVERY(main, 2)
@@ -71,6 +81,8 @@ int main(int argc, char** argv) {
     DUE_AT_PRINTF(main, 2, m)
     DUE_AT_PRINTF(main, 2, b)
     DUE_AT_PRINTF(main, 2, i)
+    DUE_AT_PRINTF(main, 2, tmp)
+    DUE_AT_PRINTF(main, 2, tmp2)
 
     printf("Hello World!\n");
     return 0;
@@ -92,5 +104,5 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
     /******* User-defined recovery begins here ********/
 
     //Return 0 to indicate successful recovery.
-    return 0;
+    return 1;
 }
