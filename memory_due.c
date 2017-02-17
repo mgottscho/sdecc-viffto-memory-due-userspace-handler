@@ -30,6 +30,9 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         dump_candidate_messages(&(dueinfo->candidates));
         dump_cacheline(&(dueinfo->cacheline));
         dump_setup(&(dueinfo->setup));
+        printf("Recovered message: 0x");
+        dump_word(&(dueinfo->recovered_message));
+        printf("\n");
 
         if ((void*)(dueinfo->tf.badvaddr) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.badvaddr) > dueinfo->setup.pc_end)
             printf("DUE appears to have occurred in a subroutine.\n");
@@ -80,7 +83,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     dueinfo_t user_context;
 
     //Init
-    user_context.valid = 0;
+    user_context.valid = 1;
     user_context.error_in_stack = 0;
     user_context.error_in_text = 0;
     user_context.error_in_data = 0;
@@ -98,15 +101,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
     if (tf) {
-        //Copy trap frame
-        for (int i = 0; i < 32; i++)
-            user_context.tf.gpr[i] = tf->gpr[i];
-        user_context.tf.status = tf->status;
-        user_context.tf.epc = tf->epc;
-        user_context.tf.badvaddr = tf->badvaddr;
-        user_context.tf.cause = tf->cause;
-        user_context.tf.insn = tf->insn;
-
+        user_context.tf = *tf; //Copy trap frame
 
         //Analyze trap frame, determine in which segment the memory DUE occured
         void* badvaddr = (void*)(tf->badvaddr);
@@ -121,48 +116,42 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
         if (badvaddr >= _fbss && badvaddr < _end)
             user_context.error_in_bss = 1;
         user_context.error_in_heap = 0; //TODO
+    } else
+        user_context.valid = 0;
+
+    if (candidates)
+        copy_candidates(&user_context.candidates, candidates); 
+    else 
+        user_context.valid = 0;
+
+    if (cacheline)
+        copy_cacheline(&user_context.cacheline, cacheline); 
+    else
+        user_context.valid = 0;
         
-    }
-
-    if (candidates) {
-        //Copy candidate messages
-        for (int i = 0; i < candidates->size; i++) {
-            for (int j = 0; j < 8; j++)
-                user_context.candidates.candidate_messages[i].bytes[j] = (candidates->candidate_messages[i]).bytes[j];
-        }
-        user_context.candidates.size = candidates->size;
-    }
-
-    if (cacheline) {
-        //Copy cacheline
-        //FIXME: memcpy?
-        due_cacheline_t cl;
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++)
-                cl.words[i].bytes[j] = cacheline->words[i].bytes[j];
-        }
-        cl.blockpos = cacheline->blockpos;
-        user_context.cacheline = cl;
-    }
-        
-    user_context.valid = 1;
-
     //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
-    if (g_handler_stack[g_handler_sp].fptr &&
+    if (user_context.valid && 
+        g_handler_stack[g_handler_sp].fptr &&
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
                  ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-        return g_handler_stack[g_handler_sp].fptr(&user_context, recovered_message);
+        int retval = g_handler_stack[g_handler_sp].fptr(&user_context);
+        copy_word(recovered_message, &(user_context.recovered_message));
+        return retval;
     }
 
     return -1;
+}
+
+void dump_word(word_t* w) {
+   for (int i = 0; i < 8; i++)
+       printf("%02x", w->bytes[i]);
 }
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
        for (int i = 0; i < cd->size; i++) {
            printf("Candidate message %d: 0x", i);
-           for (int j = 0; j < 8; j++)
-               printf("%02x", cd->candidate_messages[i].bytes[j]);
+           dump_word(&(cd->candidate_messages[i]));
            printf("\n");
        }
    } else
@@ -174,8 +163,7 @@ void dump_cacheline(due_cacheline_t* cl) {
        for (int i = 0; i < 8; i++) {
            if (cl->blockpos != i) {
                printf("Word %d: 0x", i);
-               for (int j = 0; j < 8; j++)
-                   printf("%02x", cl->words[i].bytes[j]);
+               dump_word(&(cl->words[i]));
            } else
                printf("Word %d: <CORRUPTED MESSAGE>", i);
            printf("\n");
@@ -191,4 +179,3 @@ void dump_setup(due_handler_t *setup) {
    printf("DUE PC region end: %p\n", setup->pc_end);
    printf("DUE region restart: %d\n", setup->restart);
 }
-

@@ -17,7 +17,7 @@ typedef enum {
 typedef struct due_handler due_handler_t; //Forward declaration for circular dependencies
 typedef struct dueinfo dueinfo_t; //Forward declaration for circular dependencies
 
-typedef int (*user_defined_trap_handler)(dueinfo_t*, word_t*);
+typedef int (*user_defined_trap_handler)(dueinfo_t*);
 
 struct due_handler {
     user_defined_trap_handler fptr;
@@ -39,6 +39,7 @@ struct dueinfo {
     due_candidates_t candidates;
     due_cacheline_t cacheline;
     struct due_handler setup;
+    word_t recovered_message;
 };
 
 #define MAX_REGISTERED_HANDLERS 8
@@ -105,18 +106,19 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
         DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
         DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-        DUE_INFO(fname, seqnum).candidates = src->candidates; \
-        DUE_INFO(fname, seqnum).cacheline = src->cacheline; \
         DUE_INFO(fname, seqnum).setup = src->setup; \
+        copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)); \
+        copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
+        copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
     } else { \
         DUE_INFO(fname, seqnum).valid = 0; \
     }
 
 #define DUE_AT(fname, seqnum, variable) \
-    (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) == RECOVERY_ADDR(fname, variable)
+    ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) == RECOVERY_ADDR(fname, variable))
 
 #define DUE_IN(fname, seqnum, variable) \
-    (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable)
+    ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
 #define DUE_AT_PRINTF(fname, seqnum, variable) \
     if (DUE_AT(fname, seqnum, variable)) \
@@ -152,6 +154,7 @@ void dump_dueinfo(dueinfo_t* dueinfo);
 void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
 int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message);
+void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
 void dump_setup(due_handler_t *setup);

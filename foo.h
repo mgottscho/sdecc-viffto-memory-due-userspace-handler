@@ -6,6 +6,6 @@
 #ifndef FOO_H
 #define FOO_H
 
-void foo(float* y, float x, float m, float b);
+void foo(double* y, double x, double m, double b);
 
 #endif

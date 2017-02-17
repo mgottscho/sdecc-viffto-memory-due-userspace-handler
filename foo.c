@@ -7,8 +7,8 @@
 #include "memory_due.h"
 #include <stdio.h>
 
-void foo(float* y, float x, float m, float b) {
-    volatile float btmp = b;
+void foo(double* y, double x, double m, double b) {
+    volatile double btmp = b;
     for (int i = 0; i < 10; i++)
         *y = m*x+btmp;
 }

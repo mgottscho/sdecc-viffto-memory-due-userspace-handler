@@ -27,3 +27,31 @@ void dump_tf(trapframe_t* tf)
   printf("pc %lx va %lx insn       %x sr %lx\n", tf->epc, tf->badvaddr,
          (uint32_t)tf->insn, tf->status);
 }
+
+//Originally defined in riscv-pk/pk/handlers.c
+void copy_word(word_t* dest, word_t* src) {
+   if (dest && src) {
+       for (int i = 0; i < 32; i++)
+           dest->bytes[i] = src->bytes[i];
+       dest->size = src->size;
+   }
+}
+
+//Originally defined in riscv-pk/pk/handlers.c
+void copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
+    if (dest && src) {
+        for (int i = 0; i < 32; i++)
+            copy_word(dest->words+i, src->words+i);
+        dest->size = src->size;
+        dest->blockpos = src->blockpos;
+    }
+}
+
+//Originally defined in riscv-pk/pk/handlers.c
+void copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
+    if (dest && src) {
+        for (int i = 0; i < 32; i++)
+            copy_word(dest->candidate_messages+i, src->candidate_messages+i);
+        dest->size = src->size;
+    }
+}
