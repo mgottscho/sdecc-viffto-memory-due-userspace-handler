@@ -6,6 +6,7 @@
  */ 
 
 #include <stdio.h>
+#include <string.h>
 #include "memory_due.h" 
 #include "foo.h"
 
@@ -41,16 +42,17 @@ int main(int argc, char** argv) {
     b = 0;
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
-//        if (i == 50)
-            //INJECT_DUE_DATA(0,10)
+        static int injected = 0;
+        if (!injected && i == 50) {
+            injected = 1;
+            INJECT_DUE_DATA(0,5)
+        }
         x[i] = (float)(i);
     }
    
     BEGIN_DUE_RECOVERY(main, 2, STRICTNESS_DEFAULT)
     //Computation
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (i == 50)
-            INJECT_DUE_DATA(0,10)
         foo(y+i, x[i], m, b);
     }
     END_DUE_RECOVERY(main, 2)
@@ -77,13 +79,38 @@ int main(int argc, char** argv) {
 }
 
 int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context, word_t* recovered_value) {
-    /******* User-defined recovery begins here ********/
-    g_handler_stack[g_handler_sp].restart = 0;
-    recovery_context->setup.restart = 0;
+    int retval = -1;
 
-    //Return 0 to indicate successful recovery.
+    //Decide what to do based on where the error is.
+    if (DUE_IN(main, 1, x)
+     || DUE_IN(main, 1, y)
+     || DUE_AT(main, 1, m)
+     || DUE_AT(main, 1, b)) {
+        //If error is in an approximable variable, heuristically recover it using OS default policy and proceed.
+        retval = 1;
+    } else if (DUE_AT(main, 1, i)) {
+        //If error is in i, it's control flow and we need to be careful.
+        due_candidates_t c = recovery_context->candidates;
+
+        int c_i;
+        for (unsigned i = 0; i < c.size; i++) {
+            word_t w = c.candidate_messages[i];
+            memcpy(&c_i, &w, w.size);
+            if (c_i > 0 || c_i <= ARRAY_SIZE) //Check that this candidate produces a legal i value based on semantics of the code in which it appears
+                *recovered_value = w;
+        }
+
+        //Restart the init just to be safe
+        g_handler_stack[g_handler_sp].restart = 1;
+        recovery_context->setup.restart = 1;
+
+        retval = 0;
+    } else { //Error is in something we haven't defined to handle. Probably best to crash.
+        retval = -1;
+    }
+
     COPY_DUE_INFO(main, 1, recovery_context)
-    return 1;
+    return retval;
 }
 
 int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context, word_t* recovered_value) {

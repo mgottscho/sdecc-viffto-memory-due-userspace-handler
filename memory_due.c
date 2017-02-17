@@ -30,6 +30,9 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         dump_candidate_messages(&(dueinfo->candidates));
         dump_cacheline(&(dueinfo->cacheline));
         dump_setup(&(dueinfo->setup));
+
+        if ((void*)(dueinfo->tf.badvaddr) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.badvaddr) > dueinfo->setup.pc_end)
+            printf("DUE appears to have occurred in a subroutine.\n");
     } else
         printf("No valid DUE info.\n");
 }
