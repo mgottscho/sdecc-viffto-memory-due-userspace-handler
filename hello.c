@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     EN_RECOVERY_OBJECT(main,x,ARRAY_SIZE*sizeof(foo_t))
     EN_RECOVERY_OBJECT(main,y,ARRAY_SIZE*sizeof(foo_t))
 
-    BEGIN_DUE_RECOVERY(main, 1)
+    BEGIN_DUE_RECOVERY(main, 1, STRICTNESS_DEFAULT)
     m = 2;
     b = 0;
     i = 0;
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     DUE_AT_PRINTF(main, 1, b)
     DUE_AT_PRINTF(main, 1, i)
 
-    BEGIN_DUE_RECOVERY(main, 2)
+    BEGIN_DUE_RECOVERY(main, 2, STRICTNESS_STRICT)
     for (i = 0; i < ARRAY_SIZE; i++) {
         tmp = m*x[i].val1;
         if (i == 50)
@@ -89,20 +89,21 @@ int main(int argc, char** argv) {
 }
 
 int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
-    COPY_DUE_INFO(main, 1, recovery_context)
-    
     /******* User-defined recovery begins here ********/
-    //g_restart_due_region = 1;
+    //g_handler.restart = 1;
+    //recovery_context.setup.restart = 1;
 
     //Return 0 to indicate successful recovery.
+    COPY_DUE_INFO(main, 1, recovery_context)
     return 0;
 }
 
 int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
-    COPY_DUE_INFO(main, 2, recovery_context)
-    
     /******* User-defined recovery begins here ********/
+    //g_handler.restart = 1;
+    //recovery_context.setup.restart = 1;
 
     //Return 0 to indicate successful recovery.
+    COPY_DUE_INFO(main, 2, recovery_context)
     return 1;
 }

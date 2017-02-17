@@ -6,6 +6,8 @@
 #ifndef MINIPK_H
 #define MINIPK_H
 
+#include <stddef.h>
+
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
     long gpr[32];
@@ -18,19 +20,21 @@ typedef struct {
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    char byte[8];
+    char bytes[32]; //Support UP TO 256-bit words
+    size_t size;
 } word_t;
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    word_t candidate_messages[32];
-    int num_candidate_messages;
+    word_t candidate_messages[32]; //Support UP TO 32 candidate messages
+    size_t size;
 } due_candidates_t;
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    word_t words[8];
-    int blockpos;
+    word_t words[32]; //Support UP TO 32 words in a cache line
+    size_t blockpos;
+    size_t size;
 } due_cacheline_t;
 
 typedef int (*user_trap_handler)(trapframe_t*, due_candidates_t*, due_cacheline_t*); //Originally defined in riscv-pk/pk/pk.h

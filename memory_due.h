@@ -8,25 +8,38 @@
 
 #include "minipk.h"
 
-extern void* g_due_trap_region_pc_start;
-extern void* g_due_trap_region_pc_end;
-extern int g_restart_due_region;
+typedef enum {
+    STRICTNESS_DEFAULT,
+    STRICTNESS_STRICT,
+    STRICTNESS_NUM
+} due_region_strictness_t;
 
-typedef struct {
-    trapframe_t tf;
-    int valid;
-    int error_in_stack;
-    int error_in_text;
-    int error_in_data;
-    int error_in_sdata;
-    int error_in_bss;
-    int error_in_heap;
-    due_candidates_t candidates;
-    due_cacheline_t cacheline;
-} dueinfo_t;
-
+typedef struct due_handler due_handler_t; //Forward declaration for circular dependencies
+typedef struct dueinfo dueinfo_t; //Forward declaration for circular dependencies
 
 typedef int (*user_defined_trap_handler)(dueinfo_t*);
+
+struct due_handler {
+    user_defined_trap_handler fptr;
+    due_region_strictness_t strict;
+    void* pc_start;
+    void* pc_end;
+    int restart;
+};
+
+struct dueinfo {
+    int valid;
+    trapframe_t tf;
+    short error_in_stack;
+    short error_in_text;
+    short error_in_data;
+    short error_in_sdata;
+    short error_in_bss;
+    short error_in_heap;
+    due_candidates_t candidates;
+    due_cacheline_t cacheline;
+    struct due_handler setup;
+};
 
 #define STR(x) #x
 #define STRINGIFY(x) STR(x)
@@ -63,18 +76,17 @@ typedef int (*user_defined_trap_handler)(dueinfo_t*);
 #define END_DUE_REGION_LABEL(fname, seqnum) \
     fname ## _ ## seqnum ## _ ## end
 
-#define BEGIN_DUE_RECOVERY(fname, seqnum) \
-    register_user_memory_due_trap_handler(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum)); \
+#define BEGIN_DUE_RECOVERY(fname, seqnum, strict) \
+    register_user_memory_due_trap_handler(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum), strict); \
     START_DUE_REGION_LABEL(fname,seqnum):;
 
 #define END_DUE_RECOVERY(fname,seqnum) \
     END_DUE_REGION_LABEL(fname,seqnum):; \
-    if (g_restart_due_region == 1) { \
-        g_restart_due_region = 0; \
+    if (g_handler.restart == 1) { \
+        g_handler.restart = 0; \
         printf("Restarting DUE trap region!\n"); \
-        goto *g_due_trap_region_pc_start; \
+        goto *(g_handler.pc_start); \
     }
-    //register_user_memory_due_trap_handler(NULL, NULL, NULL);
 
 #define DUE_INFO(fname, seqnum) fname ## _ ## seqnum ## _ ## dueinfo
 
@@ -82,16 +94,21 @@ typedef int (*user_defined_trap_handler)(dueinfo_t*);
     dueinfo_t DUE_INFO(fname, seqnum);
 
 #define COPY_DUE_INFO(fname, seqnum, src) \
-    DUE_INFO(fname, seqnum).tf = src->tf; \
-    DUE_INFO(fname, seqnum).valid = src->valid; \
-    DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
-    DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
-    DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
-    DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
-    DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
-    DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-    DUE_INFO(fname, seqnum).candidates = src->candidates; \
-    DUE_INFO(fname, seqnum).cacheline = src->cacheline; \
+    if (src) { \
+        DUE_INFO(fname, seqnum).valid = src->valid; \
+        DUE_INFO(fname, seqnum).tf = src->tf; \
+        DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
+        DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
+        DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
+        DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
+        DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
+        DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
+        DUE_INFO(fname, seqnum).candidates = src->candidates; \
+        DUE_INFO(fname, seqnum).cacheline = src->cacheline; \
+        DUE_INFO(fname, seqnum).setup = src->setup; \
+    } else { \
+        DUE_INFO(fname, seqnum).valid = 0; \
+    }
 
 #define DUE_AT(fname, seqnum, variable) \
     (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) == RECOVERY_ADDR(fname, variable)
@@ -118,6 +135,7 @@ typedef int (*user_defined_trap_handler)(dueinfo_t*);
                  : "r" (start_tick_offset), "r" (stop_tick_offset));
 
 
+
 //Useful symbols defined by the RISC-V linker script
 extern void* _ftext; //Front of code segment
 extern void* _etext; //End of code segment
@@ -125,11 +143,12 @@ extern void* _fdata; //Front of initialized data segment
 extern void* _edata; //End of initialized data segment
 extern void* _fbss; //Front of uninitialized data segment
 extern void* _end; //End of uninitialized data segment... and address space overall?
+extern due_handler_t g_handler;
 
 void dump_dueinfo(dueinfo_t* dueinfo);
-void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end);
+void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline);
-
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
+void dump_setup(due_handler_t *setup);
 #endif

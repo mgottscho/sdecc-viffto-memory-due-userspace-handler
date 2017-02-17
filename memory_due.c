@@ -8,10 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-user_defined_trap_handler g_user_trap_fptr = NULL;
-void* g_due_trap_region_pc_start = NULL;
-void* g_due_trap_region_pc_end = NULL;
-int g_restart_due_region = 0;
+due_handler_t g_handler;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
@@ -31,15 +28,19 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("_end: %p\n", &_end);
         dump_candidate_messages(&(dueinfo->candidates));
         dump_cacheline(&(dueinfo->cacheline));
+        dump_setup(&(dueinfo->setup));
     } else
         printf("No valid DUE info.\n");
 }
 
-void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end) {
+void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
     //Save necessary global user state
-    g_user_trap_fptr = fptr;
-    g_due_trap_region_pc_start = pc_start;
-    g_due_trap_region_pc_end = pc_end;
+    //TODO: what about atomicity?
+    g_handler.fptr = fptr;
+    g_handler.strict = strict;
+    g_handler.pc_start = pc_start;
+    g_handler.pc_end = pc_end;
+    g_handler.restart = 0; //Set decision should be made by user at time of DUE
 
     user_trap_handler entry_trap_fptr = &memory_due_handler_entry;
     asm volatile("or a0, zero, %0;" //Load default entry trap handler fptr into register a0
@@ -50,51 +51,60 @@ void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void*
 }
 
 int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline) {
-    dueinfo_t user_recovery_context;
+    dueinfo_t user_context;
 
     //Init
-    user_recovery_context.valid = 0;
-    user_recovery_context.error_in_stack = 0;
-    user_recovery_context.error_in_text = 0;
-    user_recovery_context.error_in_data = 0;
-    user_recovery_context.error_in_sdata = 0;
-    user_recovery_context.error_in_bss = 0;
-    user_recovery_context.error_in_heap = 0;
-    user_recovery_context.candidates.num_candidate_messages = 0;
-    user_recovery_context.cacheline.blockpos = 0;
+    user_context.valid = 0;
+    user_context.error_in_stack = 0;
+    user_context.error_in_text = 0;
+    user_context.error_in_data = 0;
+    user_context.error_in_sdata = 0;
+    user_context.error_in_bss = 0;
+    user_context.error_in_heap = 0;
+    user_context.candidates.size = 0;
+    user_context.cacheline.blockpos = 0;
+
+    //Copy DUE handler setup context
+    user_context.setup.fptr = g_handler.fptr;
+    user_context.setup.strict = g_handler.strict;
+    user_context.setup.pc_start = g_handler.pc_start;
+    user_context.setup.pc_end = g_handler.pc_end;
+    user_context.setup.restart = g_handler.restart;
 
     if (tf) {
         //Copy trap frame
         for (int i = 0; i < 32; i++)
-            user_recovery_context.tf.gpr[i] = tf->gpr[i];
-        user_recovery_context.tf.status = tf->status;
-        user_recovery_context.tf.epc = tf->epc;
-        user_recovery_context.tf.badvaddr = tf->badvaddr;
-        user_recovery_context.tf.cause = tf->cause;
-        user_recovery_context.tf.insn = tf->insn;
+            user_context.tf.gpr[i] = tf->gpr[i];
+        user_context.tf.status = tf->status;
+        user_context.tf.epc = tf->epc;
+        user_context.tf.badvaddr = tf->badvaddr;
+        user_context.tf.cause = tf->cause;
+        user_context.tf.insn = tf->insn;
+
 
         //Analyze trap frame, determine in which segment the memory DUE occured
-        if (tf->badvaddr >= tf->gpr[2]-1024 && tf->badvaddr < tf->gpr[2]+1024) //gpr[2] is sp. FIXME: how to find size of stack frame dynamically, or otherwise find the base of stack?
-            user_recovery_context.error_in_stack = 1;
-        if ((void*)(tf->badvaddr) >= _ftext && (void*)(tf->badvaddr) < _etext)
-            user_recovery_context.error_in_text = 1;
-        if ((void*)(tf->badvaddr) >= _fdata && (void*)(tf->badvaddr) < _edata)
-            user_recovery_context.error_in_data = 1;
-        if ((void*)(tf->badvaddr) >= _edata && (void*)(tf->badvaddr) < _fbss)
-            user_recovery_context.error_in_sdata = 1;
-        if ((void*)(tf->badvaddr) >= _fbss && (void*)(tf->badvaddr) < _end)
-            user_recovery_context.error_in_bss = 1;
-        user_recovery_context.error_in_heap = 0; //TODO
+        void* badvaddr = (void*)(tf->badvaddr);
+        if (tf->badvaddr >= tf->gpr[2] && tf->badvaddr < tf->gpr[2]+512) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +512 bytes from the tf's sp (because it grows down)
+            user_context.error_in_stack = 1;
+        if (badvaddr >= _ftext && badvaddr < _etext)
+            user_context.error_in_text = 1;
+        if (badvaddr >= _fdata && badvaddr < _edata)
+            user_context.error_in_data = 1;
+        if (badvaddr >= _edata && badvaddr < _fbss)
+            user_context.error_in_sdata = 1;
+        if (badvaddr >= _fbss && badvaddr < _end)
+            user_context.error_in_bss = 1;
+        user_context.error_in_heap = 0; //TODO
         
     }
 
     if (candidates) {
         //Copy candidate messages
-        for (int i = 0; i < candidates->num_candidate_messages; i++) {
+        for (int i = 0; i < candidates->size; i++) {
             for (int j = 0; j < 8; j++)
-                user_recovery_context.candidates.candidate_messages[i].byte[j] = (candidates->candidate_messages[i]).byte[j];
+                user_context.candidates.candidate_messages[i].bytes[j] = (candidates->candidate_messages[i]).bytes[j];
         }
-        user_recovery_context.candidates.num_candidate_messages = candidates->num_candidate_messages;
+        user_context.candidates.size = candidates->size;
     }
 
     if (cacheline) {
@@ -103,19 +113,19 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
         due_cacheline_t cl;
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++)
-                cl.words[i].byte[j] = cacheline->words[i].byte[j];
+                cl.words[i].bytes[j] = cacheline->words[i].bytes[j];
         }
         cl.blockpos = cacheline->blockpos;
-        user_recovery_context.cacheline = cl;
+        user_context.cacheline = cl;
     }
         
-    user_recovery_context.valid = 1;
+    user_context.valid = 1;
 
-    //Call user handler if PC in error occurred in the registered PC range
-    if ((void*)(tf->epc) >= g_due_trap_region_pc_start && (void*)(tf->epc) < g_due_trap_region_pc_end) {
-        if (g_user_trap_fptr) {
-            return g_user_trap_fptr(&user_recovery_context);
-        }
+    //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
+    if (g_handler.fptr &&
+           (g_handler.strict == STRICTNESS_DEFAULT || 
+                 ((void*)(tf->epc) >= g_handler.pc_start && (void*)(tf->epc) < g_handler.pc_end))) {
+        return g_handler.fptr(&user_context);
     }
 
     return -1;
@@ -123,10 +133,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
-       for (int i = 0; i < cd->num_candidate_messages; i++) {
+       for (int i = 0; i < cd->size; i++) {
            printf("Candidate message %d: 0x", i);
            for (int j = 0; j < 8; j++)
-               printf("%02x", cd->candidate_messages[i].byte[j]);
+               printf("%02x", cd->candidate_messages[i].bytes[j]);
            printf("\n");
        }
    } else
@@ -139,7 +149,7 @@ void dump_cacheline(due_cacheline_t* cl) {
            if (cl->blockpos != i) {
                printf("Word %d: 0x", i);
                for (int j = 0; j < 8; j++)
-                   printf("%02x", cl->words[i].byte[j]);
+                   printf("%02x", cl->words[i].bytes[j]);
            } else
                printf("Word %d: <CORRUPTED MESSAGE>", i);
            printf("\n");
@@ -147,3 +157,12 @@ void dump_cacheline(due_cacheline_t* cl) {
    } else
        printf("Invalid cacheline!\n");
 }
+
+void dump_setup(due_handler_t *setup) {
+   printf("DUE handler user function: 0x%p\n", setup->fptr); 
+   printf("DUE handling strictness: %d\n", setup->strict); 
+   printf("DUE PC region start: %p\n", setup->pc_start);
+   printf("DUE PC region end: %p\n", setup->pc_end);
+   printf("DUE region restart: %d\n", setup->restart);
+}
+
