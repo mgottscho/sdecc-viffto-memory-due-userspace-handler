@@ -37,7 +37,7 @@ typedef struct {
     size_t size;
 } due_cacheline_t;
 
-typedef int (*user_trap_handler)(trapframe_t*, due_candidates_t*, due_cacheline_t*); //Originally defined in riscv-pk/pk/pk.h
+typedef int (*user_trap_handler)(trapframe_t*, due_candidates_t*, due_cacheline_t*, word_t* recovered_message); //Originally defined in riscv-pk/pk/pk.h
 void dump_tf(trapframe_t* tf); //Originally defined in riscv-pk/pk/pk.h
 
 #endif

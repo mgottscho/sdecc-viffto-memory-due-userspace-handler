@@ -8,7 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-due_handler_t g_handler;
+due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS]; 
+size_t g_handler_sp = 0;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
@@ -33,24 +34,46 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("No valid DUE info.\n");
 }
 
-void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
+void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
+    if (g_handler_sp+1 >= MAX_REGISTERED_HANDLERS) {
+        printf("Failed to push new DUE handler, MAX_REGISTERED_HANDLERS has been exceeded.\n");
+        return;
+    }
+
     //Save necessary global user state
     //TODO: what about atomicity?
-    g_handler.fptr = fptr;
-    g_handler.strict = strict;
-    g_handler.pc_start = pc_start;
-    g_handler.pc_end = pc_end;
-    g_handler.restart = 0; //Set decision should be made by user at time of DUE
+    g_handler_sp++;
+    g_handler_stack[g_handler_sp].fptr = fptr;
+    g_handler_stack[g_handler_sp].strict = strict;
+    g_handler_stack[g_handler_sp].pc_start = pc_start;
+    g_handler_stack[g_handler_sp].pc_end = pc_end;
+    g_handler_stack[g_handler_sp].restart = 0; //Set decision should be made by user at time of DUE
 
-    user_trap_handler entry_trap_fptr = &memory_due_handler_entry;
-    asm volatile("or a0, zero, %0;" //Load default entry trap handler fptr into register a0
-                 "li a7, 447;" //Load syscall number 447 (SYS_register_user_memory_due_trap_handler) into register a7
-                 "ecall;" //Make RISC-V environment call to register our user-defined trap handler
-                 :
-                 : "r" (entry_trap_fptr));
+    //First invocation only
+    static int init = 0;
+    if (!init) {
+        user_trap_handler entry_trap_fptr = &memory_due_handler_entry;
+        asm volatile("or a0, zero, %0;" //Load default entry trap handler fptr into register a0
+                     "li a7, 447;" //Load syscall number 447 (SYS_register_user_memory_due_trap_handler) into register a7
+                     "ecall;" //Make RISC-V environment call to register our user-defined trap handler
+                     :
+                     : "r" (entry_trap_fptr));
+        init = 1;
+    }
 }
 
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline) {
+void pop_user_memory_due_trap_handler() {
+    if (g_handler_sp == 0) {
+        printf("Failed to pop DUE handler stack, none are currently registered.\n");
+        return;
+    }
+
+    //Save necessary global user state
+    //TODO: what about atomicity?
+    g_handler_sp--;
+}
+
+int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message) {
     dueinfo_t user_context;
 
     //Init
@@ -65,11 +88,11 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.cacheline.blockpos = 0;
 
     //Copy DUE handler setup context
-    user_context.setup.fptr = g_handler.fptr;
-    user_context.setup.strict = g_handler.strict;
-    user_context.setup.pc_start = g_handler.pc_start;
-    user_context.setup.pc_end = g_handler.pc_end;
-    user_context.setup.restart = g_handler.restart;
+    user_context.setup.fptr = g_handler_stack[g_handler_sp].fptr;
+    user_context.setup.strict = g_handler_stack[g_handler_sp].strict;
+    user_context.setup.pc_start = g_handler_stack[g_handler_sp].pc_start;
+    user_context.setup.pc_end = g_handler_stack[g_handler_sp].pc_end;
+    user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
     if (tf) {
         //Copy trap frame
@@ -122,10 +145,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.valid = 1;
 
     //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
-    if (g_handler.fptr &&
-           (g_handler.strict == STRICTNESS_DEFAULT || 
-                 ((void*)(tf->epc) >= g_handler.pc_start && (void*)(tf->epc) < g_handler.pc_end))) {
-        return g_handler.fptr(&user_context);
+    if (g_handler_stack[g_handler_sp].fptr &&
+           (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
+                 ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
+        return g_handler_stack[g_handler_sp].fptr(&user_context, recovered_message);
     }
 
     return -1;

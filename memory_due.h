@@ -17,7 +17,7 @@ typedef enum {
 typedef struct due_handler due_handler_t; //Forward declaration for circular dependencies
 typedef struct dueinfo dueinfo_t; //Forward declaration for circular dependencies
 
-typedef int (*user_defined_trap_handler)(dueinfo_t*);
+typedef int (*user_defined_trap_handler)(dueinfo_t*, word_t*);
 
 struct due_handler {
     user_defined_trap_handler fptr;
@@ -41,6 +41,7 @@ struct dueinfo {
     struct due_handler setup;
 };
 
+#define MAX_REGISTERED_HANDLERS 8
 #define STR(x) #x
 #define STRINGIFY(x) STR(x)
 #define FILE_LINE __FILE__ "_" STRINGIFY(__LINE__)
@@ -77,16 +78,17 @@ struct dueinfo {
     fname ## _ ## seqnum ## _ ## end
 
 #define BEGIN_DUE_RECOVERY(fname, seqnum, strict) \
-    register_user_memory_due_trap_handler(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum), strict); \
+    push_user_memory_due_trap_handler(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum), strict); \
     START_DUE_REGION_LABEL(fname,seqnum):;
 
 #define END_DUE_RECOVERY(fname,seqnum) \
     END_DUE_REGION_LABEL(fname,seqnum):; \
-    if (g_handler.restart == 1) { \
-        g_handler.restart = 0; \
+    if (g_handler_stack[g_handler_sp].restart == 1) { \
+        g_handler_stack[g_handler_sp].restart = 0; \
         printf("Restarting DUE trap region!\n"); \
-        goto *(g_handler.pc_start); \
-    }
+        goto *(g_handler_stack[g_handler_sp].pc_start); \
+    } \
+    pop_user_memory_due_trap_handler();
 
 #define DUE_INFO(fname, seqnum) fname ## _ ## seqnum ## _ ## dueinfo
 
@@ -143,11 +145,13 @@ extern void* _fdata; //Front of initialized data segment
 extern void* _edata; //End of initialized data segment
 extern void* _fbss; //Front of uninitialized data segment
 extern void* _end; //End of uninitialized data segment... and address space overall?
-extern due_handler_t g_handler;
+extern due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS];
+extern size_t g_handler_sp;
 
 void dump_dueinfo(dueinfo_t* dueinfo);
-void register_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline);
+void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
+void pop_user_memory_due_trap_handler();
+int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
 void dump_setup(due_handler_t *setup);
