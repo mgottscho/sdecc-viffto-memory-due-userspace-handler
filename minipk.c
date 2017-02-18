@@ -29,29 +29,57 @@ void dump_tf(trapframe_t* tf)
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
-void copy_word(word_t* dest, word_t* src) {
+int copy_word(word_t* dest, word_t* src) {
    if (dest && src) {
        for (int i = 0; i < 32; i++)
            dest->bytes[i] = src->bytes[i];
        dest->size = src->size;
+
+       return 0;
    }
+
+   return 1;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
-void copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
+int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
     if (dest && src) {
         for (int i = 0; i < 32; i++)
             copy_word(dest->words+i, src->words+i);
         dest->size = src->size;
         dest->blockpos = src->blockpos;
+
+        return 0;
     }
+
+    return 1;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
-void copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
+int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
     if (dest && src) {
         for (int i = 0; i < 32; i++)
             copy_word(dest->candidate_messages+i, src->candidate_messages+i);
         dest->size = src->size;
+        
+        return 0;
     }
+
+    return 1;
+}
+
+//Originally defined in riscv-pk/pk/handlers.c
+int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
+   if (dest && src) {
+       for (int i = 0; i < 32; i++)
+           dest->gpr[i] = src->gpr[i];
+       dest->status = src->status;
+       dest->epc = src->epc;
+       dest->badvaddr = src->badvaddr;
+       dest->cause = src->cause;
+       dest->insn = src->insn;
+       return 0;
+   } 
+   
+   return 1;
 }

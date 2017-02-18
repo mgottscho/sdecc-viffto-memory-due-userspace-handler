@@ -29,7 +29,8 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context);
 int main(int argc, char** argv) {
     double m,b;
     long i;
-   
+    int injected = 0;
+
     EN_RECOVERY_PRIMITIVE(main,m)
     EN_RECOVERY_PRIMITIVE(main,b)
     EN_RECOVERY_PRIMITIVE(main,i)
@@ -42,13 +43,17 @@ int main(int argc, char** argv) {
     b = 0;
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
-        static int injected = 0;
+        b = (double)i;
         if (!injected && i == 50) {
             injected = 1;
             INJECT_DUE_DATA(0,0)
         }
-        x[i] = (double)(i);
+        m = b;
+        x[i] = m;
     }
+    END_DUE_RECOVERY(main, 1)
+    b = 0; 
+    m = 2;
    
     BEGIN_DUE_RECOVERY(main, 2, STRICTNESS_DEFAULT)
     //Computation
@@ -56,7 +61,6 @@ int main(int argc, char** argv) {
         foo(y+i, x[i], m, b);
     }
     END_DUE_RECOVERY(main, 2)
-    END_DUE_RECOVERY(main, 1)
    
     //Report DUE information from both nested regions
     dump_dueinfo(&DUE_INFO(main, 1));
@@ -116,7 +120,7 @@ int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
         recovery_context->setup.restart = 1;
         COPY_DUE_INFO(main, 1, recovery_context) //Need to do this again because we updated recovery context
     } else { //Error is in something we haven't defined to handle. Probably best to crash.
-        retval = -1; //TMP
+        retval = -1;
     }
 
     return retval;

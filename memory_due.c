@@ -34,7 +34,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         dump_word(&(dueinfo->recovered_message));
         printf("\n");
 
-        if ((void*)(dueinfo->tf.badvaddr) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.badvaddr) > dueinfo->setup.pc_end)
+        if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
             printf("DUE appears to have occurred in a subroutine.\n");
     } else
         printf("No valid DUE info.\n");
@@ -90,8 +90,6 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.error_in_sdata = 0;
     user_context.error_in_bss = 0;
     user_context.error_in_heap = 0;
-    user_context.candidates.size = 0;
-    user_context.cacheline.blockpos = 0;
 
     //Copy DUE handler setup context
     user_context.setup.fptr = g_handler_stack[g_handler_sp].fptr;
@@ -100,9 +98,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.setup.pc_end = g_handler_stack[g_handler_sp].pc_end;
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
-    if (tf) {
-        user_context.tf = *tf; //Copy trap frame
-
+    if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
         void* badvaddr = (void*)(tf->badvaddr);
         if (tf->badvaddr >= tf->gpr[2] && tf->badvaddr < tf->gpr[2]+512) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +512 bytes from the tf's sp (because it grows down)
@@ -119,14 +115,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     } else
         user_context.valid = 0;
 
-    if (candidates)
-        copy_candidates(&user_context.candidates, candidates); 
-    else 
+    if (!(candidates && !copy_candidates(&(user_context.candidates), candidates)))
         user_context.valid = 0;
 
-    if (cacheline)
-        copy_cacheline(&user_context.cacheline, cacheline); 
-    else
+    if (!(cacheline && !copy_cacheline(&(user_context.cacheline), cacheline))) 
         user_context.valid = 0;
         
     //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
@@ -135,8 +127,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
                  ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
         int retval = g_handler_stack[g_handler_sp].fptr(&user_context);
-        copy_word(recovered_message, &(user_context.recovered_message));
-        return retval;
+        if (!copy_word(recovered_message, &(user_context.recovered_message)))
+            return retval;
+        else
+            return -1;
     }
 
     return -1;
