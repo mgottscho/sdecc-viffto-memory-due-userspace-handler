@@ -43,13 +43,14 @@ int main(int argc, char** argv) {
     b = 0;
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
-        b = (double)i;
+        //b = (double)i;
         if (!injected && i == 50) {
             injected = 1;
             INJECT_DUE_DATA(0,0)
         }
-        m = b;
-        x[i] = m;
+        //m = b;
+        //x[i] = m;
+        x[i] = (double)i;
     }
     END_DUE_RECOVERY(main, 1)
     b = 0; 
@@ -97,28 +98,22 @@ int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
         //If error is in an approximable variable, heuristically recover it using OS default policy and proceed.
         retval = 1;
     } else if (DUE_AT(main, 1, i)) {
-        //If error is in i, it's control flow and we need to be careful.
-        due_candidates_t c;
-        copy_candidates(&c, &(recovery_context->candidates));
-
+        //If error is in i, it's control flow and we need to be careful. It can still be heuristically recovered but needs bounds check.
         long c_i;
-        retval = 1;
-        copy_word(&(recovery_context->recovered_message), &(c.candidate_messages[0]));
-        for (unsigned i = 0; i < c.size; i++) {
-            word_t w;
-            copy_word(&w, c.candidate_messages+i);
-            memcpy(&c_i, w.bytes, 8);
+        retval = -1;
+        for (unsigned i = 0; i < recovery_context->candidates.size; i++) {
+            memcpy(&c_i, recovery_context->candidates.candidate_messages[i].bytes, 8); //FIXME: what about mismatched variable and message sizes?
             if (c_i > 0 && c_i <= ARRAY_SIZE) { //Check that this candidate produces a legal i value based on semantics of the code in which it appears. At least one candidate should match or there is a major issue.
-                copy_word(&(recovery_context->recovered_message), &(w));
+                copy_word(&(recovery_context->recovered_message), recovery_context->candidates.candidate_messages+i);
                 retval = 0;
+                COPY_DUE_INFO(main, 1, recovery_context) //Need to do this again because we updated recovery context
                 break;
             }
         }
 
-        //Restart the init just to be safe
+        //Restart section just to be safe to make sure we initialize every iteration of the loop.
         g_handler_stack[g_handler_sp].restart = 1;
         recovery_context->setup.restart = 1;
-        COPY_DUE_INFO(main, 1, recovery_context) //Need to do this again because we updated recovery context
     } else { //Error is in something we haven't defined to handle. Probably best to crash.
         retval = -1;
     }

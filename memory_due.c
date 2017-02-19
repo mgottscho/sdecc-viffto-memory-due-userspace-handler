@@ -80,7 +80,7 @@ void pop_user_memory_due_trap_handler() {
 }
 
 int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message) {
-    dueinfo_t user_context;
+    static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
     user_context.valid = 1;
@@ -137,7 +137,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
 }
 
 void dump_word(word_t* w) {
-   for (int i = 0; i < 8; i++)
+   for (int i = 0; i < w->size; i++)
        printf("%02x", w->bytes[i]);
 }
 
@@ -154,7 +154,7 @@ void dump_candidate_messages(due_candidates_t* cd) {
 
 void dump_cacheline(due_cacheline_t* cl) {
    if (cl) {
-       for (int i = 0; i < 8; i++) {
+       for (int i = 0; i < cl->size; i++) {
            if (cl->blockpos != i) {
                printf("Word %d: 0x", i);
                dump_word(&(cl->words[i]));
