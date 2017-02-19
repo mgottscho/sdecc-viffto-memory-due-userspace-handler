@@ -36,11 +36,13 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
 
         if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
             printf("DUE appears to have occurred in a subroutine.\n");
+
+        printf("%s\n", dueinfo->expl);
     } else
         printf("No valid DUE info.\n");
 }
 
-void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
+void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
     if (g_handler_sp+1 >= MAX_REGISTERED_HANDLERS) {
         printf("Failed to push new DUE handler, MAX_REGISTERED_HANDLERS has been exceeded.\n");
         return;
@@ -49,6 +51,12 @@ void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_
     //Save necessary global user state
     //TODO: what about atomicity?
     g_handler_sp++;
+    //FIXME C string copy
+    for (int i = 0; i < 32; i++) {
+        g_handler_stack[g_handler_sp].name[i] = name[i];
+        if (name[i] == '\0')
+            break;
+    }
     g_handler_stack[g_handler_sp].fptr = fptr;
     g_handler_stack[g_handler_sp].strict = strict;
     g_handler_stack[g_handler_sp].pc_start = pc_start;
@@ -92,6 +100,11 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.error_in_heap = 0;
 
     //Copy DUE handler setup context
+    for (int i = 0; i < 32; i++) {
+        user_context.setup.name[i] = g_handler_stack[g_handler_sp].name[i];
+        if (user_context.setup.name[i] == '\0')
+            break;
+    }
     user_context.setup.fptr = g_handler_stack[g_handler_sp].fptr;
     user_context.setup.strict = g_handler_stack[g_handler_sp].strict;
     user_context.setup.pc_start = g_handler_stack[g_handler_sp].pc_start;
@@ -167,7 +180,8 @@ void dump_cacheline(due_cacheline_t* cl) {
 }
 
 void dump_setup(due_handler_t *setup) {
-   printf("DUE handler user function: 0x%p\n", setup->fptr); 
+   printf("DUE handler name: %s\n", setup->name);
+   printf("DUE handler user function: %p\n", setup->fptr); 
    printf("DUE handling strictness: %d\n", setup->strict); 
    printf("DUE PC region start: %p\n", setup->pc_start);
    printf("DUE PC region end: %p\n", setup->pc_end);

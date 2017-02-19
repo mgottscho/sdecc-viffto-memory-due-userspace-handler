@@ -20,6 +20,7 @@ typedef struct dueinfo dueinfo_t; //Forward declaration for circular dependencie
 typedef int (*user_defined_trap_handler)(dueinfo_t*);
 
 struct due_handler {
+    char name[32];
     user_defined_trap_handler fptr;
     due_region_strictness_t strict;
     void* pc_start;
@@ -40,6 +41,7 @@ struct dueinfo {
     due_cacheline_t cacheline;
     struct due_handler setup;
     word_t recovered_message;
+    char expl[128];
 };
 
 #define MAX_REGISTERED_HANDLERS 8
@@ -52,18 +54,16 @@ struct dueinfo {
 #define FUNCTION_DUE_RECOVERY_NAME(fname, seqnum) fname ## _ ## seqnum ## _ ## memory_due_handler
 #define DUE_RECOVERY_HANDLER(fname,seqnum,...) FUNCTION_DUE_RECOVERY_NAME(fname, seqnum)(__VA_ARGS__)
 
-#define DECL_RECOVERY_PRIMITIVE(scope, variable) \
-    void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = NULL;
-
-#define DECL_RECOVERY_OBJECT(scope, variable) \
+#define DECL_RECOVERY(scope, variable) \
     void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = NULL; \
     void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = NULL;
 
-#define EN_RECOVERY_PRIMITIVE(scope, variable) \
-    VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(&variable);
-
-#define EN_RECOVERY_OBJECT(scope, variable, size) \
+#define EN_RECOVERY(scope, variable, size) \
     VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(&variable); \
+    VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = (void*)(&variable)+size;
+
+#define EN_RECOVERY_PTR(scope, variable, size) \
+    VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(variable); \
     VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = (void*)(variable)+size;
 
 #define RECOVERY_ADDR(scope, variable) \
@@ -79,7 +79,7 @@ struct dueinfo {
     fname ## _ ## seqnum ## _ ## end
 
 #define BEGIN_DUE_RECOVERY(fname, seqnum, strict) \
-    push_user_memory_due_trap_handler(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum), strict); \
+    push_user_memory_due_trap_handler(STRINGIFY(FUNCTION_DUE_RECOVERY_NAME(fname, seqnum)), FUNCTION_DUE_RECOVERY_NAME(fname, seqnum), &&START_DUE_REGION_LABEL(fname, seqnum), &&END_DUE_REGION_LABEL(fname, seqnum), strict); \
     START_DUE_REGION_LABEL(fname,seqnum):;
 
 #define END_DUE_RECOVERY(fname,seqnum) \
@@ -106,27 +106,34 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
         DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
         DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-        DUE_INFO(fname, seqnum).setup = src->setup; \
+        for (int i = 0; i < 32; i++) { \
+            DUE_INFO(fname, seqnum).setup.name[i] = src->setup.name[i]; \
+            if (src->setup.name[i] == '\0') \
+                break; \
+        } \
+        DUE_INFO(fname, seqnum).setup.fptr = src->setup.fptr; \
+        DUE_INFO(fname, seqnum).setup.strict = src->setup.strict; \
+        DUE_INFO(fname, seqnum).setup.pc_start = src->setup.pc_start; \
+        DUE_INFO(fname, seqnum).setup.pc_end = src->setup.pc_end; \
+        DUE_INFO(fname, seqnum).setup.restart = src->setup.restart; \
         copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)); \
         copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
         copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
+        for (int i = 0; i < 128; i++) { \
+            DUE_INFO(fname, seqnum).expl[i] = src->expl[i]; \
+            if (src->expl[i] == '\0') \
+                break; \
+        } \
     } else { \
         DUE_INFO(fname, seqnum).valid = 0; \
     }
 
-#define DUE_AT(fname, seqnum, variable) \
-    ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) == RECOVERY_ADDR(fname, variable))
-
 #define DUE_IN(fname, seqnum, variable) \
     ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
-#define DUE_AT_PRINTF(fname, seqnum, variable) \
-    if (DUE_AT(fname, seqnum, variable)) \
-        printf("DUE in %s(), PC %p, memory address %p, variable %s [%p]\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #variable, RECOVERY_ADDR(fname, variable));
-
-#define DUE_IN_PRINTF(fname, seqnum, variable) \
+#define DUE_IN_SPRINTF(fname, seqnum, variable, exp) \
     if (DUE_IN(fname, seqnum, variable)) \
-        printf("DUE in %s(), PC %p, memory address %p, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
+        sprintf(exp, "DUE in %s(), PC %p, memory address %p, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
 
 #define INJECT_DUE_INSTRUCTION(start_tick_offset, stop_tick_offset) \
     asm volatile("custom0 0,%0,%1,0;" \
@@ -151,7 +158,7 @@ extern due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS];
 extern size_t g_handler_sp;
 
 void dump_dueinfo(dueinfo_t* dueinfo);
-void push_user_memory_due_trap_handler(user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
+void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
 int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message);
 void dump_word(word_t* w);
