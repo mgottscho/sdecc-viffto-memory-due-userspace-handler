@@ -39,13 +39,14 @@ int main(int argc, char** argv) {
     EN_RECOVERY_PTR(main,x,ARRAY_SIZE*sizeof(double))
     EN_RECOVERY_PTR(main,y,ARRAY_SIZE*sizeof(double))
 
+    BEGIN_DUE_RECOVERY(main, 1, STRICTNESS_STRICT) 
     BEGIN_DUE_RECOVERY(main, 2, STRICTNESS_STRICT)
     //Initialization
     m = 2;
     b = 0;
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (!injected && i == ARRAY_SIZE/2) {
+        if (!injected && i == 77) {
             injected = 1;
             INJECT_DUE_DATA(0,10)
         }
@@ -56,13 +57,12 @@ int main(int argc, char** argv) {
     BEGIN_DUE_RECOVERY(main, 3, STRICTNESS_DEFAULT)
     //Computation
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (i == ARRAY_SIZE*3/4)
+        if (i == 25)
             INJECT_DUE_DATA(0,10)
         foo(y+i, x[i], m, b);
     }
     END_DUE_RECOVERY(main, 3)
    
-    BEGIN_DUE_RECOVERY(main, 1, STRICTNESS_STRICT) 
     printf("Hello World!\n");
     END_DUE_RECOVERY(main, 1)
     
@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
 }
 
 int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
+    COPY_DUE_INFO(main, 1, recovery_context) //This must come first
     //TODO: how to make into a switch-case?
 
     if (DUE_IN(main, 2, x)) {
@@ -110,6 +111,7 @@ int DUE_RECOVERY_HANDLER(main, 1, dueinfo_t *recovery_context) {
 }
 
 int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
+    COPY_DUE_INFO(main, 2, recovery_context) //This must come first
     //TODO: how to deal with multiple variables per message? For example, two 32-bit ints packed into 64-bit message?
 
     //If error is in an approximable variable, heuristically recover it using OS default policy and proceed.
@@ -153,10 +155,11 @@ int DUE_RECOVERY_HANDLER(main, 2, dueinfo_t *recovery_context) {
     //Error is in something we haven't defined to handle. Probably best to crash.
     sprintf(recovery_context->expl, "Unknown error scope");
     COPY_DUE_INFO(main, 2, recovery_context) //Need to do this again because we updated recovery context
-    return 1;
+    return -1;
 }
 
 int DUE_RECOVERY_HANDLER(main, 3, dueinfo_t *recovery_context) {
+    COPY_DUE_INFO(main, 3, recovery_context) //This must come first
     //TODO: how to make into a switch-case?
 
     if (DUE_IN(main, 3, x)) {
