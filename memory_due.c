@@ -13,6 +13,7 @@ size_t g_handler_sp = 0;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
+        dump_setup(&(dueinfo->setup));
         dump_tf(&(dueinfo->tf));
         printf("error_in_stack = %d\n", dueinfo->error_in_stack);
         printf("error_in_text = %d\n", dueinfo->error_in_text);
@@ -29,7 +30,6 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("_end: %p\n", &_end);
         dump_candidate_messages(&(dueinfo->candidates));
         dump_cacheline(&(dueinfo->cacheline));
-        dump_setup(&(dueinfo->setup));
         printf("Recovered message: 0x");
         dump_word(&(dueinfo->recovered_message));
         printf("\n");
@@ -182,6 +182,7 @@ void dump_cacheline(due_cacheline_t* cl) {
 void dump_setup(due_handler_t *setup) {
    printf("DUE handler name: %s\n", setup->name);
    printf("DUE handler user function: %p\n", setup->fptr); 
+   printf("Handler invocations: %d\n", setup->invocations);
    printf("DUE handling strictness: %d\n", setup->strict); 
    printf("DUE PC region start: %p\n", setup->pc_start);
    printf("DUE PC region end: %p\n", setup->pc_end);

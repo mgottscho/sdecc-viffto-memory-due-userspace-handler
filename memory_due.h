@@ -26,6 +26,7 @@ struct due_handler {
     void* pc_start;
     void* pc_end;
     int restart;
+    int invocations;
 };
 
 struct dueinfo {
@@ -57,6 +58,10 @@ struct dueinfo {
 #define DECL_RECOVERY(scope, variable) \
     void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = NULL; \
     void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = NULL;
+
+#define DECL_RECOVERY_EXTERN(scope, variable) \
+    extern void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable); \
+    extern void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable);
 
 #define EN_RECOVERY(scope, variable, size) \
     VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(&variable); \
@@ -96,6 +101,9 @@ struct dueinfo {
 #define DECL_DUE_INFO(fname, seqnum) \
     dueinfo_t DUE_INFO(fname, seqnum);
 
+#define DECL_DUE_INFO_EXTERN(fname, seqnum) \
+    extern dueinfo_t DUE_INFO(fname, seqnum);
+
 #define COPY_DUE_INFO(fname, seqnum, src) \
     if (src) { \
         DUE_INFO(fname, seqnum).valid = src->valid; \
@@ -116,6 +124,7 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).setup.pc_start = src->setup.pc_start; \
         DUE_INFO(fname, seqnum).setup.pc_end = src->setup.pc_end; \
         DUE_INFO(fname, seqnum).setup.restart = src->setup.restart; \
+        DUE_INFO(fname, seqnum).setup.invocations = invocations; \
         copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)); \
         copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
         copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
