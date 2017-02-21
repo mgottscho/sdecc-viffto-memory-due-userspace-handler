@@ -111,10 +111,12 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.setup.pc_end = g_handler_stack[g_handler_sp].pc_end;
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
+    copy_word(&user_context.recovered_message, recovered_message);
+
     if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
         void* badvaddr = (void*)(tf->badvaddr);
-        if (tf->badvaddr >= tf->gpr[2] && tf->badvaddr < tf->gpr[2]+512) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +512 bytes from the tf's sp (because it grows down)
+        if (tf->badvaddr >= tf->gpr[2] && tf->badvaddr < tf->gpr[2]+64) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +64 bytes from the tf's sp (because it grows down)
             user_context.error_in_stack = 1;
         if (badvaddr >= _ftext && badvaddr < _etext)
             user_context.error_in_text = 1;

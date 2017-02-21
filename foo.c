@@ -8,7 +8,5 @@
 #include <stdio.h>
 
 void foo(double* y, double x, double m, double b) {
-    volatile double btmp = b;
-    for (int i = 0; i < 10; i++)
-        *y = m*x+btmp;
+    *y = m*x+b;
 }

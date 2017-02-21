@@ -22,9 +22,9 @@ void dump_tf(trapframe_t* tf)
   for(int i = 0; i < 32; i+=4)
   {
     for(int j = 0; j < 4; j++)
-      printf("%s %lx%c",regnames[i+j],tf->gpr[i+j],j < 3 ? ' ' : '\n');
+      printf("%s %016lx%c",regnames[i+j],tf->gpr[i+j],j < 3 ? ' ' : '\n');
   }
-  printf("pc %lx va %lx insn       %x sr %lx\n", tf->epc, tf->badvaddr,
+  printf("pc %016lx va %016lx insn       %08x sr %016lx\n", tf->epc, tf->badvaddr,
          (uint32_t)tf->insn, tf->status);
 }
 

@@ -18,7 +18,7 @@ double y[ARRAY_SIZE];
 int main(int argc, char** argv) {
     double m,b;
     long i;
-    int injected2, injected3 = 0;
+    int injected_init, injected_compute = 0;
 
     EN_RECOVERY(main,m,sizeof(double))
     EN_RECOVERY(main,b,sizeof(double))
@@ -26,39 +26,40 @@ int main(int argc, char** argv) {
     EN_RECOVERY_PTR(main,x,ARRAY_SIZE*sizeof(double))
     EN_RECOVERY_PTR(main,y,ARRAY_SIZE*sizeof(double))
 
-    BEGIN_DUE_RECOVERY(main, bar, STRICTNESS_STRICT) 
-    BEGIN_DUE_RECOVERY(main, 2, STRICTNESS_STRICT)
+    BEGIN_DUE_RECOVERY(main, overall, STRICTNESS_STRICT) 
+    BEGIN_DUE_RECOVERY(main, init, STRICTNESS_STRICT)
     //Initialization
-    m = 2;
-    b = 0;
+    m = 15.22;
+    b = 57198;
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (!injected2 && i == 77) {
-            injected2 = 1;
+        if (!injected_init && i == 77) {
+            injected_init = 1;
             INJECT_DUE_DATA(0,10)
         }
         x[i] = (double)i;
     }
-    END_DUE_RECOVERY(main, 2)
+    END_DUE_RECOVERY(main, init)
    
-    BEGIN_DUE_RECOVERY(main, 3, STRICTNESS_DEFAULT)
+    BEGIN_DUE_RECOVERY(main, compute, STRICTNESS_DEFAULT)
     //Computation
     for (i = 0; i < ARRAY_SIZE; i++) {
-        if (!injected3 && i == 23) {
-            injected3 = 1;
+        if (!injected_compute && i == 23) {
+            injected_compute = 1;
             INJECT_DUE_DATA(0,10)
         }
         foo(y+i, x[i], m, b);
     }
-    END_DUE_RECOVERY(main, 3)
+    END_DUE_RECOVERY(main, compute)
    
     printf("Hello World!\n");
-    END_DUE_RECOVERY(main, bar)
     
     //Report DUE information from each region
-    dump_dueinfo(&DUE_INFO(main, bar));
-    dump_dueinfo(&DUE_INFO(main, 2));
-    dump_dueinfo(&DUE_INFO(main, 3));
+    dump_dueinfo(&DUE_INFO(main, overall));
+    dump_dueinfo(&DUE_INFO(main, init));
+    dump_dueinfo(&DUE_INFO(main, compute));
+    
+    END_DUE_RECOVERY(main, overall)
 
     return 0;
 }
