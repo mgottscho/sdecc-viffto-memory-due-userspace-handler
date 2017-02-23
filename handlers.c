@@ -70,8 +70,6 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
 
-    retval = -1;
-
     /********** Ensure state is properly committed before returning ************/
     COPY_DUE_INFO(main, overall, recovery_context)
     return retval;
