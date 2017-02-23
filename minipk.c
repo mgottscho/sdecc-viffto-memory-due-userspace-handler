@@ -58,7 +58,7 @@ int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
     if (dest && src) {
-        for (int i = 0; i < 32; i++)
+        for (int i = 0; i < 64; i++)
             copy_word(dest->candidate_messages+i, src->candidate_messages+i);
         dest->size = src->size;
         
