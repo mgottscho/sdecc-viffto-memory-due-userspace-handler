@@ -15,8 +15,6 @@
 DECL_DUE_INFO(main, overall)
 DECL_DUE_INFO(main, init)
 DECL_DUE_INFO(main, compute)
-DECL_RECOVERY(main,m)
-DECL_RECOVERY(main,b)
 DECL_RECOVERY(main,i)
 DECL_RECOVERY(main,x)
 DECL_RECOVERY(main,y)
@@ -40,23 +38,15 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
     if (DUE_IN(main, overall, x)) {
-        DUE_IN_SPRINTF(main, overall, x, recovery_context->expl)
+        DUE_IN_SPRINTF(main, overall, x, float, recovery_context->expl)
         retval = -1;
     }
     if (DUE_IN(main, overall, y)) {
-        DUE_IN_SPRINTF(main, overall, y, recovery_context->expl)
-        retval = -1;
-    }
-    if (DUE_IN(main, overall, m)) {
-        DUE_IN_SPRINTF(main, overall, m, recovery_context->expl)
-        retval = -1;
-    }
-    if (DUE_IN(main, overall, b)) {
-        DUE_IN_SPRINTF(main, overall, b, recovery_context->expl)
+        DUE_IN_SPRINTF(main, overall, y, float, recovery_context->expl)
         retval = -1;
     }
     if (DUE_IN(main, overall, i)) {
-        DUE_IN_SPRINTF(main, overall, i, recovery_context->expl)
+        DUE_IN_SPRINTF(main, overall, i, unsigned long, recovery_context->expl)
         retval = -1;
     }
     /***************************************************************************/
@@ -96,19 +86,11 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
 
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, init, x)) {
-        DUE_IN_SPRINTF(main, init, x, recovery_context->expl)
+        DUE_IN_SPRINTF(main, init, x, float, recovery_context->expl)
         retval = 1;
     }
     if (DUE_IN(main, init, y)) {
-        DUE_IN_SPRINTF(main, init, y, recovery_context->expl)
-        retval = 1;
-    }
-    if (DUE_IN(main, init, m)) {
-        DUE_IN_SPRINTF(main, init, m, recovery_context->expl)
-        retval = 1;
-    }
-    if (DUE_IN(main, init, b)) {
-        DUE_IN_SPRINTF(main, init, b, recovery_context->expl)
+        DUE_IN_SPRINTF(main, init, y, float, recovery_context->expl)
         retval = 1;
     }
     /***************************************************************************/
@@ -116,18 +98,22 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     /*************** APP-DEFINED CUSTOM RECOVERY FOR SPECIFIC CASES ************/
     //If error is in i, it's control flow and we need to be careful. It can still be heuristically recovered but needs bounds check.
     if (DUE_IN(main, init, i)) {
-        DUE_IN_SPRINTF(main, init, i, recovery_context->expl)
-        long c_i;
-        for (unsigned i = 0; i < recovery_context->candidates.size; i++) {
+        DUE_IN_SPRINTF(main, init, i, unsigned long, recovery_context->expl)
+        unsigned long c_i = 0, smallest = -1, smallest_i = 0;
+        for (unsigned long i = 0; i < recovery_context->candidates.size; i++) {
             memcpy(&c_i, recovery_context->candidates.candidate_messages[i].bytes, 8); //FIXME: what about mismatched variable and message sizes?
-            if (c_i > 0 && c_i <= ARRAY_SIZE) { //Check that this candidate produces a legal i value based on semantics of the code in which it appears. At least one candidate should match or there is a major issue.
-                copy_word(&(recovery_context->recovered_message), recovery_context->candidates.candidate_messages+i);
-                //Restart section just to be safe to make sure we initialize every iteration of the loop.
-                g_handler_stack[g_handler_sp].restart = 1;
-                recovery_context->setup.restart = 1;
-                retval = 0;
-                break;
+            if (c_i < smallest && c_i >= 0) {
+                smallest = c_i;
+                smallest_i = i;
             }
+        }
+        if (smallest >= 0 && smallest < ARRAY_SIZE) { //Check that this candidate produces a legal i value based on semantics of the code in which it appears. At least one candidate should match or there is a major issue.
+            copy_word(&(recovery_context->recovered_message), recovery_context->candidates.candidate_messages+smallest_i);
+
+            //If we choose the smallest valid candidate, then we do not need to restart.
+            //g_handler_stack[g_handler_sp].restart = 0;
+            //recovery_context->setup.restart = 0;
+            retval = 0;
         }
     }
     /***************************************************************************/
@@ -159,23 +145,15 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
    
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, compute, x)) {
-        DUE_IN_SPRINTF(main, compute, x, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, x, float, recovery_context->expl)
         retval = 1;
     }
     if (DUE_IN(main, compute, y)) {
-        DUE_IN_SPRINTF(main, compute, y, recovery_context->expl)
-        retval = 1;
-    }
-    if (DUE_IN(main, compute, m)) {
-        DUE_IN_SPRINTF(main, compute, m, recovery_context->expl)
-        retval = 1;
-    }
-    if (DUE_IN(main, compute, b)) {
-        DUE_IN_SPRINTF(main, compute, b, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, y, float, recovery_context->expl)
         retval = 1;
     }
     if (DUE_IN(main, compute, i)) {
-        DUE_IN_SPRINTF(main, compute, i, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, i, float, recovery_context->expl)
         retval = 1;
     }
     /***************************************************************************/

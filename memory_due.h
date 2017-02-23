@@ -140,9 +140,9 @@ struct dueinfo {
 #define DUE_IN(fname, seqnum, variable) \
     ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
-#define DUE_IN_SPRINTF(fname, seqnum, variable, exp) \
+#define DUE_IN_SPRINTF(fname, seqnum, variable, type, exp) \
     if (DUE_IN(fname, seqnum, variable)) \
-        sprintf(exp, "DUE in %s(), PC %p, memory address %p, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
+        sprintf(exp, "DUE in %s(), PC %p, memory address %p, type %s, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
 
 #define INJECT_DUE_INSTRUCTION(start_tick_offset, stop_tick_offset) \
     asm volatile("custom0 0,%0,%1,0;" \
