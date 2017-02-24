@@ -160,7 +160,7 @@ void dump_word(word_t* w) {
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
-       printf("Load value offset in message: %lu\n", cd->load_message_offset);
+       printf("Load value offset in message: %ld\n", cd->load_message_offset);
        printf("Load width: %lu\n", cd->load_size);
        printf("Message width: %lu\n", cd->candidate_messages[0].size);
        for (int i = 0; i < cd->size; i++) {

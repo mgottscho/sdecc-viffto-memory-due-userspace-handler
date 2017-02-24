@@ -28,7 +28,7 @@ typedef struct {
 typedef struct {
     word_t candidate_messages[64]; //Support UP TO 64 candidate messages
     size_t size;
-    size_t load_message_offset;
+    long load_message_offset;
     size_t load_size;
 } due_candidates_t;
 
