@@ -33,22 +33,7 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
     
-    //TODO: Can we write this using a switch-case style using macros that are easy to read?
-    //TODO: how to deal with multiple variables per message? For example, two 32-bit ints packed into 64-bit message? Multiple cases below can fire, but we don't want them to.
-    
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
-    if (DUE_IN(main, overall, x)) {
-        DUE_IN_SPRINTF(main, overall, x, float, recovery_context->expl)
-        retval = -1;
-    }
-    if (DUE_IN(main, overall, y)) {
-        DUE_IN_SPRINTF(main, overall, y, float, recovery_context->expl)
-        retval = -1;
-    }
-    if (DUE_IN(main, overall, i)) {
-        DUE_IN_SPRINTF(main, overall, i, unsigned long, recovery_context->expl)
-        retval = -1;
-    }
     /***************************************************************************/
 
    
@@ -99,10 +84,10 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     //If error is in i, it's control flow and we need to be careful. It can still be heuristically recovered but needs bounds check.
     if (DUE_IN(main, init, i)) {
         DUE_IN_SPRINTF(main, init, i, unsigned long, recovery_context->expl)
-        unsigned long c_i = 0, smallest = -1, smallest_i = 0;
+        unsigned long c_i = 0, smallest = 2*ARRAY_SIZE, smallest_i = 0;
         for (unsigned long i = 0; i < recovery_context->candidates.size; i++) {
             memcpy(&c_i, recovery_context->candidates.candidate_messages[i].bytes, 8); //FIXME: what about mismatched variable and message sizes?
-            if (c_i < smallest && c_i >= 0) {
+            if (c_i < smallest) {
                 smallest = c_i;
                 smallest_i = i;
             }
@@ -135,9 +120,6 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
     int retval = 1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
-    
-    //TODO: Can we write this using a switch-case style using macros that are easy to read?
-    //TODO: how to deal with multiple variables per message? For example, two 32-bit ints packed into 64-bit message? Multiple cases below can fire, but we don't want them to.
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
     /***************************************************************************/

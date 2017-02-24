@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
         //Semi-controlled data injection
         if (!injected_init && i == ARRAY_SIZE-10) {
             injected_init = 1;
-            INJECT_DUE_DATA(0,10)
+            INJECT_DUE_DATA(0,0)
         }
         x[i] = (float)(i)/10;
     }
@@ -44,23 +44,26 @@ int main(int argc, char** argv) {
         //Semi-controlled data injection
         if (!injected_compute && i == ARRAY_SIZE-20) {
             injected_compute = 1;
-            INJECT_DUE_DATA(0,10)
+            INJECT_DUE_DATA(2,3)
         }
+        //y[i] = x[i];
         y[i] = sin(x[i]);
     }
     END_DUE_RECOVERY(main, compute)
    
     //Sine printout viz
-    int spot = 0;
+    long spot = 0;
     for (i = ARRAY_SIZE-100; i < ARRAY_SIZE; i++) {
-       spot = (int)(y[i]*60)+60; 
-       for (unsigned long j = 0; j < spot; j++)
+       spot = (long)(y[i]*60)+60; 
+       for (long j = 0; j < spot; j++)
            printf(" ");
        printf("*");
-       for (unsigned long j = spot; j < 120; j++)
+       for (long j = spot; j < 120; j++)
            printf(" ");
        printf("\n");
     }
+    for (i = ARRAY_SIZE-100; i < ARRAY_SIZE; i++)
+        printf("x[%d]: %.8f    y[%d]: %.8f\n", i, x[i], i, y[i]);
     printf("Hello World!\n");
     
     //Report DUE information from each region

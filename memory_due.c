@@ -7,6 +7,7 @@
 #include "minipk.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS]; 
 size_t g_handler_sp = 0;
@@ -49,14 +50,8 @@ void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fpt
     }
 
     //Save necessary global user state
-    //TODO: what about atomicity?
     g_handler_sp++;
-    //FIXME C string copy
-    for (int i = 0; i < 32; i++) {
-        g_handler_stack[g_handler_sp].name[i] = name[i];
-        if (name[i] == '\0')
-            break;
-    }
+    memcpy(g_handler_stack[g_handler_sp].name, name, 32);
     g_handler_stack[g_handler_sp].fptr = fptr;
     g_handler_stack[g_handler_sp].strict = strict;
     g_handler_stack[g_handler_sp].pc_start = pc_start;
@@ -83,7 +78,6 @@ void pop_user_memory_due_trap_handler() {
     }
 
     //Save necessary global user state
-    //TODO: what about atomicity?
     g_handler_sp--;
 }
 
@@ -100,11 +94,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.error_in_heap = 0;
 
     //Copy DUE handler setup context
-    for (int i = 0; i < 32; i++) {
-        user_context.setup.name[i] = g_handler_stack[g_handler_sp].name[i];
-        if (user_context.setup.name[i] == '\0')
-            break;
-    }
+    memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, 32);
     user_context.setup.fptr = g_handler_stack[g_handler_sp].fptr;
     user_context.setup.strict = g_handler_stack[g_handler_sp].strict;
     user_context.setup.pc_start = g_handler_stack[g_handler_sp].pc_start;
