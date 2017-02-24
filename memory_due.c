@@ -15,13 +15,23 @@ size_t g_handler_sp = 0;
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
         dump_setup(&(dueinfo->setup));
+        printf("---- Pre-DUE trapframe ----\n");
         dump_tf(&(dueinfo->tf));
+        printf("---------------------------\n");
         printf("error_in_stack = %d\n", dueinfo->error_in_stack);
         printf("error_in_text = %d\n", dueinfo->error_in_text);
         printf("error_in_data = %d\n", dueinfo->error_in_data);
         printf("error_in_sdata = %d\n", dueinfo->error_in_sdata);
         printf("error_in_bss = %d\n", dueinfo->error_in_bss);
         printf("error_in_heap = %d\n", dueinfo->error_in_heap);
+  
+        static const char* regnames[] = {
+          "z ", "ra", "sp", "gp", "tp", "t0",  "t1",  "t2",
+          "s0", "s1", "a0", "a1", "a2", "a3",  "a4",  "a5",
+          "a6", "a7", "s2", "s3", "s4", "s5",  "s6",  "s7",
+          "s8", "s9", "sA", "sB", "t3", "t4",  "t5",  "t6"
+        };
+        printf("Load destination register: %s\n", regnames[dueinfo->load_dest_reg]);
 
         printf("_ftext: %p\n", &_ftext);
         printf("_etext: %p\n", &_etext);
@@ -92,6 +102,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.error_in_sdata = 0;
     user_context.error_in_bss = 0;
     user_context.error_in_heap = 0;
+    user_context.load_dest_reg = 0;
 
     //Copy DUE handler setup context
     memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, 32);
@@ -117,6 +128,7 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
         if (badvaddr >= _fbss && badvaddr < _end)
             user_context.error_in_bss = 1;
         user_context.error_in_heap = 0; //TODO
+        user_context.load_dest_reg = decode_rd(tf->insn);
     } else
         user_context.valid = 0;
 
@@ -148,6 +160,9 @@ void dump_word(word_t* w) {
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
+       printf("Load value offset in message: %lu\n", cd->load_message_offset);
+       printf("Load width: %lu\n", cd->load_size);
+       printf("Message width: %lu\n", cd->candidate_messages[0].size);
        for (int i = 0; i < cd->size; i++) {
            printf("Candidate message %d: 0x", i);
            dump_word(&(cd->candidate_messages[i]));

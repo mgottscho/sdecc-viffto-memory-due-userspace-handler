@@ -135,7 +135,7 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
         retval = 1;
     }
     if (DUE_IN(main, compute, i)) {
-        DUE_IN_SPRINTF(main, compute, i, float, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, i, unsigned long, recovery_context->expl)
         retval = 1;
     }
     /***************************************************************************/

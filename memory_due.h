@@ -38,6 +38,7 @@ struct dueinfo {
     short error_in_sdata;
     short error_in_bss;
     short error_in_heap;
+    short load_dest_reg;
     due_candidates_t candidates;
     due_cacheline_t cacheline;
     struct due_handler setup;
@@ -114,6 +115,7 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
         DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
         DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
+        DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
         for (int i = 0; i < 32; i++) { \
             DUE_INFO(fname, seqnum).setup.name[i] = src->setup.name[i]; \
             if (src->setup.name[i] == '\0') \
