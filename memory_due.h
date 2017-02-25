@@ -38,11 +38,13 @@ struct dueinfo {
     short error_in_sdata;
     short error_in_bss;
     short error_in_heap;
-    short load_dest_reg;
     due_candidates_t candidates;
     due_cacheline_t cacheline;
     struct due_handler setup;
     word_t recovered_message;
+    word_t recovered_load_value;
+    short load_dest_reg;
+    short load_message_offset;
     char expl[128];
 };
 
@@ -108,14 +110,13 @@ struct dueinfo {
 #define COPY_DUE_INFO(fname, seqnum, src) \
     if (src) { \
         DUE_INFO(fname, seqnum).valid = src->valid; \
-        DUE_INFO(fname, seqnum).tf = src->tf; \
+        copy_trapframe(&(DUE_INFO(fname, seqnum).tf), &(src->tf)); \
         DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
         DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
         DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
         DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
         DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
         DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-        DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
         for (int i = 0; i < 32; i++) { \
             DUE_INFO(fname, seqnum).setup.name[i] = src->setup.name[i]; \
             if (src->setup.name[i] == '\0') \
@@ -130,6 +131,9 @@ struct dueinfo {
         copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)); \
         copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
         copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
+        copy_word(&(DUE_INFO(fname, seqnum).recovered_load_value), &(src->recovered_load_value)); \
+        DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
+        DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
         for (int i = 0; i < 128; i++) { \
             DUE_INFO(fname, seqnum).expl[i] = src->expl[i]; \
             if (src->expl[i] == '\0') \
@@ -171,7 +175,7 @@ extern size_t g_handler_sp;
 void dump_dueinfo(dueinfo_t* dueinfo);
 void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message);
+int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, word_t* recovered_load_value, short load_dest_reg, short load_message_offset);
 void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);

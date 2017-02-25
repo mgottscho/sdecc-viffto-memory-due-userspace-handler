@@ -14,41 +14,67 @@ size_t g_handler_sp = 0;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
-        dump_setup(&(dueinfo->setup));
-        printf("---- Pre-DUE trapframe ----\n");
-        dump_tf(&(dueinfo->tf));
-        printf("---------------------------\n");
-        printf("error_in_stack = %d\n", dueinfo->error_in_stack);
-        printf("error_in_text = %d\n", dueinfo->error_in_text);
-        printf("error_in_data = %d\n", dueinfo->error_in_data);
-        printf("error_in_sdata = %d\n", dueinfo->error_in_sdata);
-        printf("error_in_bss = %d\n", dueinfo->error_in_bss);
-        printf("error_in_heap = %d\n", dueinfo->error_in_heap);
-  
         static const char* regnames[] = {
           "z ", "ra", "sp", "gp", "tp", "t0",  "t1",  "t2",
           "s0", "s1", "a0", "a1", "a2", "a3",  "a4",  "a5",
           "a6", "a7", "s2", "s3", "s4", "s5",  "s6",  "s7",
           "s8", "s9", "sA", "sB", "t3", "t4",  "t5",  "t6"
         };
-        printf("Load destination register: %s\n", regnames[dueinfo->load_dest_reg]);
-
+    
+        printf("\n");
+        printf("A DUE was recovered!\n");
+        printf("----------- Setup ---------\n");
+        dump_setup(&(dueinfo->setup));
+        printf("---------------------------\n");
+       
+        printf("-------- Trap frame -------\n");
+        dump_tf(&(dueinfo->tf));
+        printf("---------------------------\n");
+        
+        printf("----- Error location ------\n");
+        printf("error_in_stack = %d\n", dueinfo->error_in_stack);
+        printf("error_in_text = %d\n", dueinfo->error_in_text);
+        printf("error_in_data = %d\n", dueinfo->error_in_data);
+        printf("error_in_sdata = %d\n", dueinfo->error_in_sdata);
+        printf("error_in_bss = %d\n", dueinfo->error_in_bss);
+        printf("error_in_heap = %d\n", dueinfo->error_in_heap);
         printf("_ftext: %p\n", &_ftext);
         printf("_etext: %p\n", &_etext);
         printf("_fdata: %p\n", &_fdata);
         printf("_edata: %p\n", &_edata);
         printf("_fbss: %p\n", &_fbss);
         printf("_end: %p\n", &_end);
+        if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
+            printf("DUE appears to have occurred in a subroutine.\n");
+        printf("---------------------------\n");
+
+        printf("---- Candidate messages ---\n");
         dump_candidate_messages(&(dueinfo->candidates));
+        printf("---------------------------\n");
+        
+        printf("------ Cacheline (SI) -----\n");
         dump_cacheline(&(dueinfo->cacheline));
+        printf("---------------------------\n");
+
+        printf("-------- Load info --------\n");
+        printf("Load destination register: %s\n", regnames[dueinfo->load_dest_reg]);
+        printf("Load width: %d\n", dueinfo->recovered_load_value.size);
+        printf("Message width: %lu\n", dueinfo->candidates.candidate_messages[0].size);
+        printf("Load value offset in message: %d\n", dueinfo->load_message_offset);
+        printf("---------------------------\n");
+
+        printf("----- Recovered data ------\n");
         printf("Recovered message: 0x");
         dump_word(&(dueinfo->recovered_message));
         printf("\n");
-
-        if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
-            printf("DUE appears to have occurred in a subroutine.\n");
-
-        printf("%s\n", dueinfo->expl);
+        printf("Recovered load value: 0x");
+        dump_word(&(dueinfo->recovered_load_value));
+        printf("\n");
+        printf("---------------------------\n");
+        
+        printf("----- DUE explanation -----\n");
+        printf("%s", dueinfo->expl);
+        printf("---------------------------\n");
     } else
         printf("No valid DUE info.\n");
 }
@@ -91,7 +117,7 @@ void pop_user_memory_due_trap_handler() {
     g_handler_sp--;
 }
 
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message) {
+int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, word_t* recovered_load_value, short load_dest_reg, short load_message_offset) {
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
@@ -113,6 +139,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
     copy_word(&user_context.recovered_message, recovered_message);
+    copy_word(&user_context.recovered_load_value, recovered_load_value);
+
+    user_context.load_dest_reg = load_dest_reg;
+    user_context.load_message_offset = load_message_offset;
 
     if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
@@ -160,9 +190,6 @@ void dump_word(word_t* w) {
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
-       printf("Load value offset in message: %ld\n", cd->load_message_offset);
-       printf("Load width: %lu\n", cd->load_size);
-       printf("Message width: %lu\n", cd->candidate_messages[0].size);
        for (int i = 0; i < cd->size; i++) {
            printf("Candidate message %d: 0x", i);
            dump_word(&(cd->candidate_messages[i]));

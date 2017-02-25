@@ -61,8 +61,6 @@ int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
         for (int i = 0; i < 64; i++)
             copy_word(dest->candidate_messages+i, src->candidate_messages+i);
         dest->size = src->size;
-        dest->load_message_offset = src->load_message_offset;
-        dest->load_size = src->load_size;
         
         return 0;
     }
@@ -87,6 +85,6 @@ int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
-unsigned long decode_rd(long insn) {
+unsigned decode_rd(long insn) {
    return (insn >> 7) & ((1 << 5)-1); 
 }

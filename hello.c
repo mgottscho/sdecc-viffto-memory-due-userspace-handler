@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
         //Semi-controlled data injection
         if (!injected_compute && i == ARRAY_SIZE-20) {
             injected_compute = 1;
-            INJECT_DUE_DATA(2,3)
+            INJECT_DUE_DATA(3,3)
         }
         //y[i] = x[i];
         y[i] = sin(x[i]);
