@@ -45,6 +45,7 @@ struct dueinfo {
     word_t recovered_load_value;
     short load_dest_reg;
     short load_message_offset;
+    char type_name[32];
     char expl[128];
 };
 
@@ -53,18 +54,21 @@ struct dueinfo {
 #define STRINGIFY(x) STR(x)
 #define FILE_LINE __FILE__ "_" STRINGIFY(__LINE__)
 
+#define VARIABLE_SCOPE_TYPE_NAME_PASTER(x,y) x ## _ ## y ## _type_name
 #define VARIABLE_SCOPE_ADDR_PASTER(x,y) x ## _ ## y ## _addr
 #define VARIABLE_SCOPE_ADDR_END_PASTER(x,y) x ## _ ## y ## _addr_end
 #define FUNCTION_DUE_RECOVERY_NAME(fname, seqnum) fname ## _ ## seqnum ## _ ## memory_due_handler
 #define DUE_RECOVERY_HANDLER(fname,seqnum,...) FUNCTION_DUE_RECOVERY_NAME(fname, seqnum)(__VA_ARGS__)
 
-#define DECL_RECOVERY(scope, variable) \
+#define DECL_RECOVERY(scope, variable, type_name) \
     void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = NULL; \
-    void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = NULL;
+    void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = NULL; \
+    char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[32] = #type_name; \
 
-#define DECL_RECOVERY_EXTERN(scope, variable) \
+#define DECL_RECOVERY_EXTERN(scope, variable, type_name) \
     extern void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable); \
-    extern void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable);
+    extern void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable); \
+    extern char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[32]; \
 
 #define EN_RECOVERY(scope, variable, size) \
     VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(&variable); \
@@ -134,6 +138,11 @@ struct dueinfo {
         copy_word(&(DUE_INFO(fname, seqnum).recovered_load_value), &(src->recovered_load_value)); \
         DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
         DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
+        for (int i = 0; i < 32; i++) { \
+            DUE_INFO(fname, seqnum).type_name[i] = src->type_name[i]; \
+            if (src->type_name[i] == '\0') \
+                break; \
+        } \
         for (int i = 0; i < 128; i++) { \
             DUE_INFO(fname, seqnum).expl[i] = src->expl[i]; \
             if (src->expl[i] == '\0') \
@@ -146,9 +155,11 @@ struct dueinfo {
 #define DUE_IN(fname, seqnum, variable) \
     ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
-#define DUE_IN_SPRINTF(fname, seqnum, variable, type, exp) \
-    if (DUE_IN(fname, seqnum, variable)) \
-        sprintf(exp, "DUE in %s(), PC %p, memory address %p, type %s, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable));
+#define DUE_IN_SPRINTF(fname, seqnum, variable, type, dueinfo) \
+    if (DUE_IN(fname, seqnum, variable)) { \
+        sprintf(dueinfo->expl, "DUE in %s(), PC %p, memory address %p, type %s, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable)); \
+        sprintf(dueinfo->type_name, "%s", #type); \
+    } \
 
 #define INJECT_DUE_INSTRUCTION(start_tick_offset, stop_tick_offset) \
     asm volatile("custom0 0,%0,%1,0;" \
@@ -180,4 +191,5 @@ void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
 void dump_setup(due_handler_t *setup);
+void dump_load_value(word_t* load, const char* type_name);
 #endif

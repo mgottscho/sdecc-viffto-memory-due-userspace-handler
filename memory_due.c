@@ -67,9 +67,10 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("Recovered message: 0x");
         dump_word(&(dueinfo->recovered_message));
         printf("\n");
-        printf("Recovered load value: 0x");
+        printf("Recovered load: 0x");
         dump_word(&(dueinfo->recovered_load_value));
         printf("\n");
+        dump_load_value(&(dueinfo->recovered_load_value), dueinfo->type_name);
         printf("---------------------------\n");
         
         printf("----- DUE explanation -----\n");
@@ -221,4 +222,55 @@ void dump_setup(due_handler_t *setup) {
    printf("DUE PC region start: %p\n", setup->pc_start);
    printf("DUE PC region end: %p\n", setup->pc_end);
    printf("DUE region restart: %d\n", setup->restart);
+}
+
+void dump_load_value(word_t* load, const char* type_name) {
+    unsigned size = load->size;
+    if (strcmp(type_name, "unsigned char") == 0 && size == sizeof(unsigned char)) {
+        unsigned char val = (unsigned char)(*load->bytes);
+        printf("Recovered load value (%s): %c\n", type_name, val);
+
+    } else if (strcmp(type_name, "char") == 0 && size == sizeof(char)) {
+        char val = (char)(*load->bytes);
+        printf("Recovered load value (%s): %c\n", type_name, val);
+
+    } else if (strcmp(type_name, "unsigned short") == 0 && size == sizeof(unsigned short)) {
+        unsigned short val = (unsigned short)(*((unsigned short*)(load->bytes)));
+        printf("Recovered load value (%s): %u\n", type_name, val);
+
+    } else if (strcmp(type_name, "short") == 0 && size == sizeof(short)) {
+        short val = (short)(*((short*)(load->bytes)));
+        printf("Recovered load value (%s): %d\n", type_name, val);
+
+    } else if (strcmp(type_name, "unsigned") == 0 && size == sizeof(unsigned)) {
+        unsigned val = (unsigned)(*((unsigned*)(load->bytes)));
+        printf("Recovered load value (%s): %u\n", type_name, val);
+
+    } else if (strcmp(type_name, "int") == 0 && size == sizeof(int)) {
+        int val = (int)(*((int*)(load->bytes)));
+        printf("Recovered load value (%s): %d\n", type_name, val);
+
+    } else if (strcmp(type_name, "unsigned long") == 0 && size == sizeof(unsigned long)) {
+        unsigned long val = (unsigned long)(*((unsigned long*)(load->bytes)));
+        printf("Recovered load value (%s): %lu\n", type_name, val);
+
+    } else if (strcmp(type_name, "long") == 0 && size == sizeof(long)) {
+        long val = (long)(*((long*)(load->bytes)));
+        printf("Recovered load value (%s): %l\n", type_name, val);
+
+    } else if (strcmp(type_name, "float") == 0 && size == sizeof(float)) {
+        float val = (float)(*((float*)(load->bytes)));
+        printf("Recovered load value (%s): %f\n", type_name, val);
+
+    } else if (strcmp(type_name, "double") == 0 && size == sizeof(double)) {
+        double val = (double)(*((double*)(load->bytes)));
+        printf("Recovered load value (%s): %f\n", type_name, val);
+
+    } else if (strcmp(type_name, "void*") == 0 && size == sizeof(void*)) {
+        void* val = (void*)((void*)(load->bytes));
+        printf("Recovered load value (%s): %p\n", type_name, val);
+
+    } else {
+        printf("Recovered load value (type %s, length %u bytes)\n", type_name, size);
+    }
 }

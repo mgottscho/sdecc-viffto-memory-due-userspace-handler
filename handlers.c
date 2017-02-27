@@ -15,9 +15,9 @@
 DECL_DUE_INFO(main, overall)
 DECL_DUE_INFO(main, init)
 DECL_DUE_INFO(main, compute)
-DECL_RECOVERY(main,i)
-DECL_RECOVERY(main,x)
-DECL_RECOVERY(main,y)
+DECL_RECOVERY(main,i,unsigned long)
+DECL_RECOVERY(main,x,float)
+DECL_RECOVERY(main,y,float)
 
 //Define handler functions
 
@@ -71,11 +71,11 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
 
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, init, x)) {
-        DUE_IN_SPRINTF(main, init, x, float, recovery_context->expl)
+        DUE_IN_SPRINTF(main, init, x, float, recovery_context)
         retval = 1;
     }
     if (DUE_IN(main, init, y)) {
-        DUE_IN_SPRINTF(main, init, y, float, recovery_context->expl)
+        DUE_IN_SPRINTF(main, init, y, float, recovery_context)
         retval = 1;
     }
     /***************************************************************************/
@@ -83,7 +83,7 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     /*************** APP-DEFINED CUSTOM RECOVERY FOR SPECIFIC CASES ************/
     //If error is in i, it's control flow and we need to be careful. It can still be heuristically recovered but needs bounds check.
     if (DUE_IN(main, init, i)) {
-        DUE_IN_SPRINTF(main, init, i, unsigned long, recovery_context->expl)
+        DUE_IN_SPRINTF(main, init, i, unsigned long, recovery_context)
         unsigned long c_i = 0, smallest = 2*ARRAY_SIZE, smallest_i = 0;
         for (unsigned long i = 0; i < recovery_context->candidates.size; i++) {
             memcpy(&c_i, recovery_context->candidates.candidate_messages[i].bytes, 8); //FIXME: what about mismatched variable and message sizes?
@@ -127,15 +127,15 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
    
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, compute, x)) {
-        DUE_IN_SPRINTF(main, compute, x, float, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, x, float, recovery_context)
         retval = 1;
     }
     if (DUE_IN(main, compute, y)) {
-        DUE_IN_SPRINTF(main, compute, y, float, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, y, float, recovery_context)
         retval = 1;
     }
     if (DUE_IN(main, compute, i)) {
-        DUE_IN_SPRINTF(main, compute, i, unsigned long, recovery_context->expl)
+        DUE_IN_SPRINTF(main, compute, i, unsigned long, recovery_context)
         retval = 1;
     }
     /***************************************************************************/
