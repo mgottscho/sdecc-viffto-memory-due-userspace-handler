@@ -151,7 +151,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
             curr_blockpos++;
         }
     } else {
-        return -1;
+        return -1; 
     }
 
     //Load value starts before message but extends into and/or beyond it -- TODO

@@ -82,7 +82,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
                 printf("SYSTEM-specified recovery mode.\n");
                 break;
             default:
-                printf("OPT-TO-CRASH recovery mode.\n");
+                printf("OPT-TO-CRASH recovery mode.\n"); //This should never actually get printed, LOL
                 break;
         }
         printf("---------------------------\n");
@@ -159,7 +159,6 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_c
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
     copy_word(&user_context.recovered_message, recovered_message);
-    user_context.load_size = load_size;
     
     user_context.load_size = load_size;
     user_context.load_dest_reg = load_dest_reg;
@@ -170,7 +169,6 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_c
     //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
     if (load_value_from_message(recovered_message, &user_context.recovered_load_value, cacheline, load_size, load_message_offset))
         user_context.valid = 0;
-
 
     if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
@@ -203,14 +201,17 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_c
         g_handler_stack[g_handler_sp].fptr &&
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
                  ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-        int retval = g_handler_stack[g_handler_sp].fptr(&user_context);
-        if (!copy_word(recovered_message, &(user_context.recovered_message)))
-            return retval;
-        else
-            return -1;
+        user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
+        if (!copy_word(recovered_message, &(user_context.recovered_message))) {
+            return user_context.recovery_mode; //Successful case
+        } else {
+            user_context.recovery_mode = -1;
+            return user_context.recovery_mode;
+        }
     }
 
-    return -1;
+    user_context.recovery_mode = -1;
+    return user_context.recovery_mode;
 }
 
 void dump_word(word_t* w) {

@@ -29,7 +29,7 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    int retval = -1;
+    recovery_context->recovery_mode = -1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
     
@@ -46,8 +46,9 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
 
 
     /********** Ensure state is properly committed before returning ************/
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, overall, recovery_context)
-    return retval;
+    return recovery_context->recovery_mode;
     /***************************************************************************/
 }
 
@@ -120,7 +121,7 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    recovery_context->recovery_mode = 1;
+    recovery_context->recovery_mode = -1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
     
