@@ -14,13 +14,6 @@ size_t g_handler_sp = 0;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
-        static const char* regnames[] = {
-          "z ", "ra", "sp", "gp", "tp", "t0",  "t1",  "t2",
-          "s0", "s1", "a0", "a1", "a2", "a3",  "a4",  "a5",
-          "a6", "a7", "s2", "s3", "s4", "s5",  "s6",  "s7",
-          "s8", "s9", "sA", "sB", "t3", "t4",  "t5",  "t6"
-        };
-    
         printf("\n");
         printf("A DUE was recovered!\n");
         printf("----------- Setup ---------\n");
@@ -29,6 +22,10 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
        
         printf("-------- Trap frame -------\n");
         dump_tf(&(dueinfo->tf));
+        printf("---------------------------\n");
+        
+        printf("---- Float trap frame -----\n");
+        dump_float_regs(&(dueinfo->float_tf));
         printf("---------------------------\n");
         
         printf("----- Error location ------\n");
@@ -57,7 +54,13 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("---------------------------\n");
 
         printf("-------- Load info --------\n");
-        printf("Load destination register: %s\n", regnames[dueinfo->load_dest_reg]);
+        if (dueinfo->float_regfile) {
+            printf("Load type: floating-point\n");
+            printf("Load destination register: %s\n", g_float_regnames[dueinfo->load_dest_reg]);
+        } else {
+            printf("Load type: integer\n");
+            printf("Load destination register: %s\n", g_int_regnames[dueinfo->load_dest_reg]);
+        }
         printf("Load width: %d\n", dueinfo->recovered_load_value.size);
         printf("Message width: %lu\n", dueinfo->candidates.candidate_messages[0].size);
         printf("Load value offset in message: %d\n", dueinfo->load_message_offset);
@@ -71,6 +74,17 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         dump_word(&(dueinfo->recovered_load_value));
         printf("\n");
         dump_load_value(&(dueinfo->recovered_load_value), dueinfo->type_name);
+        switch (dueinfo->recovery_mode) {
+            case 0:
+                printf("USER-specified recovery mode.\n");
+                break;
+            case 1:
+                printf("SYSTEM-specified recovery mode.\n");
+                break;
+            default:
+                printf("OPT-TO-CRASH recovery mode.\n");
+                break;
+        }
         printf("---------------------------\n");
         
         printf("----- DUE explanation -----\n");
@@ -118,7 +132,7 @@ void pop_user_memory_due_trap_handler() {
     g_handler_sp--;
 }
 
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, word_t* recovered_load_value, short load_dest_reg, short load_message_offset) {
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset) {
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
@@ -129,7 +143,12 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.error_in_sdata = 0;
     user_context.error_in_bss = 0;
     user_context.error_in_heap = 0;
+    user_context.load_size = 0;
     user_context.load_dest_reg = 0;
+    user_context.float_regfile = 0;
+    user_context.load_message_offset = 0;
+    user_context.type_name[0] = '\0';
+    user_context.expl[0] = '\0';
 
     //Copy DUE handler setup context
     memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, 32);
@@ -140,10 +159,18 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
 
     copy_word(&user_context.recovered_message, recovered_message);
-    copy_word(&user_context.recovered_load_value, recovered_load_value);
-
+    user_context.load_size = load_size;
+    
+    user_context.load_size = load_size;
     user_context.load_dest_reg = load_dest_reg;
+    user_context.float_regfile = float_regfile;
     user_context.load_message_offset = load_message_offset;
+    user_context.recovery_mode = 1;
+    
+    //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
+    if (load_value_from_message(recovered_message, &user_context.recovered_load_value, cacheline, load_size, load_message_offset))
+        user_context.valid = 0;
+
 
     if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
@@ -159,8 +186,10 @@ int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_
         if (badvaddr >= _fbss && badvaddr < _end)
             user_context.error_in_bss = 1;
         user_context.error_in_heap = 0; //TODO
-        user_context.load_dest_reg = decode_rd(tf->insn);
     } else
+        user_context.valid = 0;
+    
+    if (!float_tf || copy_float_trapframe(&(user_context.float_tf), float_tf))
         user_context.valid = 0;
 
     if (!(candidates && !copy_candidates(&(user_context.candidates), candidates)))
@@ -258,6 +287,18 @@ void dump_load_value(word_t* load, const char* type_name) {
         long val = (long)(*((long*)(load->bytes)));
         printf("Recovered load value (%s): %l\n", type_name, val);
 
+    } else if (strcmp(type_name, "unsigned long long") == 0 && size == sizeof(unsigned long long)) {
+        unsigned long long val = (unsigned long long)(*((unsigned long long*)(load->bytes)));
+        printf("Recovered load value (%s): %l\n", type_name, val);
+
+    } else if (strcmp(type_name, "long long") == 0 && size == sizeof(long long)) {
+        long long val = (long long)(*((long long*)(load->bytes)));
+        printf("Recovered load value (%s): %l\n", type_name, val);
+
+    } else if (strcmp(type_name, "void*") == 0 && size == sizeof(void*)) {
+        void* val = (void*)((void*)(load->bytes));
+        printf("Recovered load value (%s): %p\n", type_name, val);
+
     } else if (strcmp(type_name, "float") == 0 && size == sizeof(float)) {
         float val = (float)(*((float*)(load->bytes)));
         printf("Recovered load value (%s): %f\n", type_name, val);
@@ -266,11 +307,20 @@ void dump_load_value(word_t* load, const char* type_name) {
         double val = (double)(*((double*)(load->bytes)));
         printf("Recovered load value (%s): %f\n", type_name, val);
 
-    } else if (strcmp(type_name, "void*") == 0 && size == sizeof(void*)) {
-        void* val = (void*)((void*)(load->bytes));
-        printf("Recovered load value (%s): %p\n", type_name, val);
+    } else if (strcmp(type_name, "long double") == 0 && size == sizeof(long double)) {
+        long double val = (long double)(*((long double*)(load->bytes)));
+        printf("Recovered load value (%s): %f\n", type_name, val);
 
     } else {
         printf("Recovered load value (type %s, length %u bytes)\n", type_name, size);
     }
+}
+
+void dump_float_regs(float_trapframe_t* float_tf) {
+  for(int i = 0; i < 32; i+=4)
+  {
+    for(int j = 0; j < 4; j++) {
+        printf("%s %016lx%c",g_float_regnames[i+j],float_tf->fpr[i+j],j < 3 ? ' ' : '\n');
+    }
+  }
 }

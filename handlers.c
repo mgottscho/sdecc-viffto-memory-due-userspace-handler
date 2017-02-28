@@ -55,11 +55,12 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
     static unsigned invocations = 0;
     invocations++;
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, init, recovery_context)
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    int retval = -1;
+    recovery_context->recovery_mode = -1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
     
@@ -72,11 +73,11 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, init, x)) {
         DUE_IN_SPRINTF(main, init, x, float, recovery_context)
-        retval = 1;
+        recovery_context->recovery_mode = 1;
     }
     if (DUE_IN(main, init, y)) {
         DUE_IN_SPRINTF(main, init, y, float, recovery_context)
-        retval = 1;
+        recovery_context->recovery_mode = 1;
     }
     /***************************************************************************/
     
@@ -98,14 +99,15 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
             //If we choose the smallest valid candidate, then we do not need to restart.
             //g_handler_stack[g_handler_sp].restart = 0;
             //recovery_context->setup.restart = 0;
-            retval = 0;
+            recovery_context->recovery_mode = 0;
         }
     }
     /***************************************************************************/
 
     /********** Ensure state is properly committed before returning ************/
-    COPY_DUE_INFO(main, init, recovery_context)
-    return retval;
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
+    COPY_DUE_INFO(main, init, recovery_context);
+    return recovery_context->recovery_mode;
     /***************************************************************************/
 }
 
@@ -113,11 +115,12 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
     static unsigned invocations = 0;
     invocations++;
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, compute, recovery_context)
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    int retval = 1;
+    recovery_context->recovery_mode = 1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
     
@@ -128,15 +131,15 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(main, compute, x)) {
         DUE_IN_SPRINTF(main, compute, x, float, recovery_context)
-        retval = 1;
+        recovery_context->recovery_mode = 1;
     }
     if (DUE_IN(main, compute, y)) {
         DUE_IN_SPRINTF(main, compute, y, float, recovery_context)
-        retval = 1;
+        recovery_context->recovery_mode = 1;
     }
     if (DUE_IN(main, compute, i)) {
         DUE_IN_SPRINTF(main, compute, i, unsigned long, recovery_context)
-        retval = 1;
+        recovery_context->recovery_mode = 1;
     }
     /***************************************************************************/
 
@@ -146,7 +149,8 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
 
 
     /********** Ensure state is properly committed before returning ************/
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, compute, recovery_context)
-    return retval;
+    return recovery_context->recovery_mode;
     /***************************************************************************/
 }

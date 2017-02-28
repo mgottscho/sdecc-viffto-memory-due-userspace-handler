@@ -32,6 +32,7 @@ struct due_handler {
 struct dueinfo {
     int valid;
     trapframe_t tf;
+    float_trapframe_t float_tf;
     short error_in_stack;
     short error_in_text;
     short error_in_data;
@@ -43,8 +44,11 @@ struct dueinfo {
     struct due_handler setup;
     word_t recovered_message;
     word_t recovered_load_value;
+    short load_size;
     short load_dest_reg;
+    short float_regfile;
     short load_message_offset;
+    int recovery_mode;
     char type_name[32];
     char expl[128];
 };
@@ -115,6 +119,7 @@ struct dueinfo {
     if (src) { \
         DUE_INFO(fname, seqnum).valid = src->valid; \
         copy_trapframe(&(DUE_INFO(fname, seqnum).tf), &(src->tf)); \
+        copy_float_trapframe(&(DUE_INFO(fname, seqnum).float_tf), &(src->float_tf)); \
         DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
         DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
         DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
@@ -136,8 +141,11 @@ struct dueinfo {
         copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
         copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
         copy_word(&(DUE_INFO(fname, seqnum).recovered_load_value), &(src->recovered_load_value)); \
+        DUE_INFO(fname, seqnum).load_size = src->load_size; \
         DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
+        DUE_INFO(fname, seqnum).float_regfile = src->float_regfile; \
         DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
+        DUE_INFO(fname, seqnum).recovery_mode = src->recovery_mode; \
         for (int i = 0; i < 32; i++) { \
             DUE_INFO(fname, seqnum).type_name[i] = src->type_name[i]; \
             if (src->type_name[i] == '\0') \
@@ -186,10 +194,11 @@ extern size_t g_handler_sp;
 void dump_dueinfo(dueinfo_t* dueinfo);
 void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
-int memory_due_handler_entry(trapframe_t* tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, word_t* recovered_load_value, short load_dest_reg, short load_message_offset);
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset);
 void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
 void dump_setup(due_handler_t *setup);
 void dump_load_value(word_t* load, const char* type_name);
+void dump_float_regs(float_trapframe_t* float_tf);
 #endif
