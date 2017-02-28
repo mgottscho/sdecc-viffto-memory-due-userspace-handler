@@ -87,8 +87,10 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     if (DUE_IN(main, init, i)) {
         DUE_IN_SPRINTF(main, init, i, unsigned long, recovery_context)
         unsigned long c_i = 0, smallest = 2*ARRAY_SIZE, smallest_i = 0;
+        word_t load_value;
         for (unsigned long i = 0; i < recovery_context->candidates.size; i++) {
-            memcpy(&c_i, recovery_context->candidates.candidate_messages[i].bytes, 8); //FIXME: what about mismatched variable and message sizes?
+            load_value_from_message(&recovery_context->candidates.candidate_messages[i], &load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
+            memcpy(&c_i, &load_value, load_value.size); 
             if (c_i < smallest) {
                 smallest = c_i;
                 smallest_i = i;
