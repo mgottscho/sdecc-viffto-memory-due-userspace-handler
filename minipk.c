@@ -128,12 +128,12 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
 
     // ----- Four cases to handle ----
 
-    //Load value fits entirely inside message -- the expected common case
+    //Load value fits entirely inside message -- the expected common case (e.g., we load an aligned int (32-bits) and messages are at least 32-bits
     if (offset >= 0 && offset+load_size <= msg_size) {
         memcpy(load_value->bytes, recovered_message->bytes+offset, load_size);
     
-    //Load value starts inside message but extends beyond it
-    } else if (offset >= 0 && offset+load_size > msg_size) {
+    //Load value starts inside message but extends beyond it (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
+    } else if (offset >= 0 && offset < msg_size && offset+load_size > msg_size) {
         unsigned remain = load_size;
         memcpy(load_value->bytes, recovered_message->bytes+offset, msg_size-offset);
         remain -= msg_size-offset;
@@ -150,15 +150,34 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
             transferred = load_size - remain;
             curr_blockpos++;
         }
-    } else {
+
+    //Load value starts before message but ends within it -- TODO (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
+    } else if (offset < 0 && offset+load_size > 0 && offset+load_size < msg_size) {
+        unsigned remain = load_size;
+        unsigned transferred = load_size - remain;
+        size_t curr_blockpos = blockpos - (load_size-msg_size)/msg_size;
+        if (curr_blockpos > cl->size) //Something went wrong
+            return -1;
+
+        while (curr_blockpos < blockpos) {
+            //TODO FINISH ME
+        }
+
+        //TODO FINISH ME
+
+    //Load value starts before message but ends after it -- TODO (e.g., we load an unaligned unsigned long (64-bits) but messages are only 16-bits)
+    } else if (offset < 0 && offset+load_size > msg_size) {
+        return -1; 
+
+    //Load value starts before message and ends before it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
+    } else if (offset < 0 && offset+load_size > 0 && offset+load_size < msg_size) {
+        return -1; 
+
+    //Load value starts after message and ends after it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
+    
+    } else { //Something went wrong
         return -1; 
     }
-
-    //Load value starts before message but extends into and/or beyond it -- TODO
-
-    //Load value starts before message and ends before it -- TODO -- Spike support?
-
-    //Load value starts after message and ends after it -- TODO -- Spike support?
 
     load_value->size = load_size;
     return 0;
