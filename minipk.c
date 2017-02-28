@@ -137,7 +137,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         unsigned remain = load_size;
         memcpy(load_value->bytes, recovered_message->bytes+offset, msg_size-offset);
         remain -= msg_size-offset;
-        unsigned transferred = load_size - remain;
+        unsigned transferred = 0;
         size_t curr_blockpos = blockpos+1;
         while (remain > 0) {
             if (msg_size > remain) {
@@ -151,29 +151,94 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
             curr_blockpos++;
         }
 
-    //Load value starts before message but ends within it -- TODO (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
+    //Load value starts before message but ends within it (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
     } else if (offset < 0 && offset+load_size > 0 && offset+load_size < msg_size) {
         unsigned remain = load_size;
-        unsigned transferred = load_size - remain;
-        size_t curr_blockpos = blockpos - (load_size-msg_size)/msg_size;
-        if (curr_blockpos > cl->size) //Something went wrong
+        unsigned transferred = 0;
+        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -1;
 
         while (curr_blockpos < blockpos) {
-            //TODO FINISH ME
+            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+            curr_blockpos++;
+            remain -= msg_size;
+            transferred = load_size - remain;
+        }
+        memcpy(load_value->bytes+transferred, recovered_message->bytes, remain);
+        remain = 0;
+        transferred = load_size - remain;
+        curr_blockpos++;
+
+    //Load value starts before message but ends after it (e.g., we load an unaligned unsigned long (64-bits) but messages are only 16-bits)
+    } else if (offset < 0 && offset+load_size > msg_size) {
+        unsigned remain = load_size;
+        unsigned transferred = 0;
+        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
+            return -1;
+
+        while (curr_blockpos < blockpos) {
+            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+            curr_blockpos++;
+            remain -= msg_size;
+            transferred = load_size - remain;
+        }
+        memcpy(load_value->bytes+transferred, recovered_message->bytes, msg_size);
+        remain -= msg_size;
+        transferred = load_size - remain;
+        curr_blockpos++;
+        while (remain > 0) {
+            if (msg_size > remain) {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, remain);
+                remain = 0;
+            } else {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+                remain -= msg_size;
+            }
+            transferred = load_size - remain;
+            curr_blockpos++;
         }
 
-        //TODO FINISH ME
+    //Load value starts before message and ends before it (e.g., DUE on a cacheline word that was not the demand load)
+    } else if (offset+load_size < 0) {
+        unsigned remain = load_size;
+        unsigned transferred = 0;
+        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
+            return -1;
 
-    //Load value starts before message but ends after it -- TODO (e.g., we load an unaligned unsigned long (64-bits) but messages are only 16-bits)
-    } else if (offset < 0 && offset+load_size > msg_size) {
-        return -1; 
-
-    //Load value starts before message and ends before it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
-    } else if (offset < 0 && offset+load_size > 0 && offset+load_size < msg_size) {
-        return -1; 
+        while (remain > 0) {
+            if (msg_size > remain) {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, remain);
+                remain = 0;
+            } else {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+                remain -= msg_size;
+            }
+            transferred = load_size - remain;
+            curr_blockpos++;
+        }
 
     //Load value starts after message and ends after it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
+    } else if (offset > msg_size) {
+        unsigned remain = load_size;
+        unsigned transferred = 0;
+        int curr_blockpos = blockpos + offset/msg_size; //positive offset
+        if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
+            return -1;
+
+        while (remain > 0) {
+            if (msg_size > remain) {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, remain);
+                remain = 0;
+            } else {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+                remain -= msg_size;
+            }
+            transferred = load_size - remain;
+            curr_blockpos++;
+        }
     
     } else { //Something went wrong
         return -1; 
