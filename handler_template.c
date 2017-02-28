@@ -18,21 +18,22 @@
 int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
     static unsigned invocations = 0;
+    invocations++;
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
+    unsigned variable_matches = 0;
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    int retval = -1;
+    recovery_context->recovery_mode = -1;
     sprintf(recovery_context->expl, "Unknown error scope");
     /***************************************************************************/
-    
-    //TODO: Can we write this using a switch-case style using macros that are easy to read?
-    //TODO: how to deal with multiple variables per message? For example, two 32-bit ints packed into 64-bit message? Multiple cases below can fire, but we don't want them to.
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
     if (DUE_IN(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_CRITICAL_VARIABLE)) {
         DUE_IN_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_CRITICAL_VARIABLE, recovery_context->expl)
-        retval = -1;
+        variable_matches++;
+        recovery_context->recovery_mode = -1;
     }
     /***************************************************************************/
 
@@ -40,7 +41,8 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
     /***** FULLY APPROXIMABLE VARIABLES -- FALL BACK TO OS-GUIDED RECOVERY *****/
     if (DUE_IN(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_APPROXIMABLE_VARIABLE)) {
         DUE_IN_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_APPROXIMABLE_VARIABLE, recovery_context->expl)
-        retval = 1;
+        variable_matches++;
+        recovery_context->recovery_mode = 1;
     }
     /***************************************************************************/
 
@@ -48,12 +50,12 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
     /*************** APP-DEFINED CUSTOM RECOVERY FOR SPECIFIC CASES ************/
     if (DUE_IN(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_CUSTOM_VARIABLE)) {
         DUE_IN_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, YOUR_CUSTOM_VARIABLE, recovery_context->expl)
+        variable_matches++;
         
         SOME_TYPE candidate_YOUR_CUSTOM_VARIABLE;
 
         //Iterate over candidates
         for (unsigned i = 0; i < recovery_context->candidates.size; i++) {
-            memcpy(&candidate_YOUR_CUSTOM_VARIABLE, recovery_context->candidates.candidate_messages[i].bytes, sizeof(SOME_TYPE)); //FIXME: what about mismatched variable and message sizes?
 
             unsigned legal = 0;
             //Check legality of candidate for variable here, based on your own program logic
@@ -64,7 +66,7 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
                 //g_handler_stack[g_handler_sp].restart = 1;
                 //recovery_context->setup.restart = 1;
 
-                retval = 0;
+                recovery_context->recovery_mode = 0;
                 break;
             }
         }
@@ -73,7 +75,12 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
 
 
     /********** Ensure state is properly committed before returning ************/
+    if (variable_matches > 1) { //Bail out if multiple variables per message
+        recovery_context->recovery_mode = -1;
+        sprintf(recovery_context->expl, "DUE recovery bailout, multiple variables matched");
+    }
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
-    return retval;
+    return recovery_context->recovery_mode;
     /***************************************************************************/
 }
