@@ -46,10 +46,7 @@ int main(int argc, char** argv) {
             injected_compute = 1;
             INJECT_DUE_DATA(3,3)
         }
-        float tmp = x[i];
-        if (injected_compute == 1)
-            asm volatile("ebreak;");
-        y[i] = sin(tmp);
+        y[i] = sin(x[i]);
     }
     END_DUE_RECOVERY(main, compute)
    
