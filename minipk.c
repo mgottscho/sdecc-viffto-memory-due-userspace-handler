@@ -113,18 +113,6 @@ int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src) {
    return 1;
 }
 
-//MWG
-long decode_load_vaddr(long insn) {
-   //RS1 + i_imm
-   //Applies to ld, lw, lb, flw, fld, etc.
-   return ((insn >> 15) & ((1 << 5)-1)) + (insn >> 20);
-}
-
-//Originally defined in riscv-pk/pk/handlers.c
-unsigned decode_rd(long insn) {
-   return (insn >> 7) & ((1 << 5)-1); 
-}
-
 //Originally defined in riscv-pk/pk/handlers.c
 int load_value_from_message(word_t* recovered_message, word_t* load_value, due_cacheline_t* cl, unsigned load_size, int offset) {
     if (!recovered_message || !load_value || !cl)
