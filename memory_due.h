@@ -8,6 +8,10 @@
 
 #include "minipk.h"
 
+#define NAME_SIZE 32
+#define EXPL_SIZE 144
+#define MAX_REGISTERED_HANDLERS 8
+
 typedef enum {
     STRICTNESS_DEFAULT,
     STRICTNESS_STRICT,
@@ -20,7 +24,7 @@ typedef struct dueinfo dueinfo_t; //Forward declaration for circular dependencie
 typedef int (*user_defined_trap_handler)(dueinfo_t*);
 
 struct due_handler {
-    char name[32];
+    char name[NAME_SIZE];
     user_defined_trap_handler fptr;
     due_region_strictness_t strict;
     void* pc_start;
@@ -50,11 +54,10 @@ struct dueinfo {
     short float_regfile;
     short load_message_offset;
     int recovery_mode;
-    char type_name[32];
-    char expl[128];
+    char type_name[NAME_SIZE];
+    char expl[EXPL_SIZE]; 
 };
 
-#define MAX_REGISTERED_HANDLERS 8
 #define STR(x) #x
 #define STRINGIFY(x) STR(x)
 #define FILE_LINE __FILE__ "_" STRINGIFY(__LINE__)
@@ -128,7 +131,7 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
         DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
         DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-        for (int i = 0; i < 32; i++) { \
+        for (int i = 0; i < NAME_SIZE; i++) { \
             DUE_INFO(fname, seqnum).setup.name[i] = src->setup.name[i]; \
             if (src->setup.name[i] == '\0') \
                 break; \
@@ -148,12 +151,12 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).float_regfile = src->float_regfile; \
         DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
         DUE_INFO(fname, seqnum).recovery_mode = src->recovery_mode; \
-        for (int i = 0; i < 32; i++) { \
+        for (int i = 0; i < NAME_SIZE; i++) { \
             DUE_INFO(fname, seqnum).type_name[i] = src->type_name[i]; \
             if (src->type_name[i] == '\0') \
                 break; \
         } \
-        for (int i = 0; i < 128; i++) { \
+        for (int i = 0; i < EXPL_SIZE; i++) { \
             DUE_INFO(fname, seqnum).expl[i] = src->expl[i]; \
             if (src->expl[i] == '\0') \
                 break; \
@@ -167,7 +170,7 @@ struct dueinfo {
 
 #define DUE_IN_SPRINTF(fname, seqnum, variable, type, dueinfo) \
     if (DUE_IN(fname, seqnum, variable)) { \
-        sprintf(dueinfo->expl, "DUE in %s(), PC %p, memory address %p, type %s, variable %s [%p, %p)\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable)); \
+        sprintf(dueinfo->expl, "DUE in %s(), PC %p, bad addr %p, type %s, var %s [%p, %p). Demand addr: %p, %u bytes.\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable), DUE_INFO(fname, seqnum).demand_vaddr, DUE_INFO(fname, seqnum).load_size); \
         sprintf(dueinfo->type_name, "%s", #type); \
     } \
 

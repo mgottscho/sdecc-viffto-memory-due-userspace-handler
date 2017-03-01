@@ -37,7 +37,7 @@ void dump_tf(trapframe_t* tf)
 {
   tf->gpr[0] = 0;
 
-  for(int i = 0; i < 32; i+=4)
+  for(int i = 0; i < NUM_GPR; i+=4)
   {
     for(int j = 0; j < 4; j++)
       printf("%s %016lx%c",g_int_regnames[i+j],tf->gpr[i+j],j < 3 ? ' ' : '\n');
@@ -49,7 +49,7 @@ void dump_tf(trapframe_t* tf)
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_word(word_t* dest, word_t* src) {
    if (dest && src) {
-       for (int i = 0; i < 32; i++)
+       for (int i = 0; i < MAX_WORD_SIZE; i++)
            dest->bytes[i] = src->bytes[i];
        dest->size = src->size;
 
@@ -62,7 +62,7 @@ int copy_word(word_t* dest, word_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
     if (dest && src) {
-        for (int i = 0; i < 32; i++)
+        for (int i = 0; i < MAX_CACHELINE_WORDS; i++)
             copy_word(dest->words+i, src->words+i);
         dest->size = src->size;
         dest->blockpos = src->blockpos;
@@ -76,7 +76,7 @@ int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
     if (dest && src) {
-        for (int i = 0; i < 64; i++)
+        for (int i = 0; i < MAX_CANDIDATE_MSG; i++)
             copy_word(dest->candidate_messages+i, src->candidate_messages+i);
         dest->size = src->size;
         
@@ -89,7 +89,7 @@ int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
    if (dest && src) {
-       for (int i = 0; i < 32; i++)
+       for (int i = 0; i < NUM_GPR; i++)
            dest->gpr[i] = src->gpr[i];
        dest->status = src->status;
        dest->epc = src->epc;
@@ -105,7 +105,7 @@ int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src) {
    if (dest && src) {
-       for (int i = 0; i < 32; i++)
+       for (int i = 0; i < NUM_FPR; i++)
            dest->fpr[i] = src->fpr[i];
        return 0;
    }
