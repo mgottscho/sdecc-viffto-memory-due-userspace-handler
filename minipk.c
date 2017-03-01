@@ -118,8 +118,8 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     if (!recovered_message || !load_value || !cl)
         return -1;
     
-    unsigned msg_size = recovered_message->size; 
-    unsigned blockpos = cl->blockpos;
+    int msg_size = recovered_message->size; 
+    int blockpos = cl->blockpos;
 
     // ----- Four cases to handle ----
 
@@ -127,11 +127,11 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     if (offset >= 0 && offset+load_size <= msg_size) {
         memcpy(load_value->bytes, recovered_message->bytes+offset, load_size);
     
-    //Load value starts inside message but extends beyond it (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
+    //Load value starts inside message but extends beyond it (e.g., we load an aligned int long (64-bits) but messages are only 32-bits
     } else if (offset >= 0 && offset < msg_size && offset+load_size > msg_size) {
-        unsigned remain = load_size;
-        size_t curr_blockpos = blockpos+1;
-        unsigned transferred = 0;
+        int remain = load_size;
+        int curr_blockpos = blockpos+1;
+        int transferred = 0;
         memcpy(load_value->bytes, recovered_message->bytes+offset, msg_size-offset);
         remain -= msg_size-offset;
         transferred = load_size - remain;
@@ -147,10 +147,10 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
             curr_blockpos++;
         }
 
-    //Load value starts before message but ends within it (e.g., we load an aligned unsigned long (64-bits) but messages are only 32-bits
-    } else if (offset < 0 && offset+load_size > 0 && offset+load_size < msg_size) {
-        unsigned remain = load_size;
-        unsigned transferred = 0;
+    //Load value starts before message but ends within it (e.g., we load an aligned int long (64-bits) but messages are only 32-bits
+    } else if (offset < 0 && offset+load_size > 0 && offset+load_size <= msg_size) {
+        int remain = load_size;
+        int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -1;
@@ -166,10 +166,10 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         transferred = load_size - remain;
         curr_blockpos++;
 
-    //Load value starts before message but ends after it (e.g., we load an unaligned unsigned long (64-bits) but messages are only 16-bits)
+    //Load value starts before message but ends after it (e.g., we load an unaligned int long (64-bits) but messages are only 16-bits)
     } else if (offset < 0 && offset+load_size > msg_size) {
-        unsigned remain = load_size;
-        unsigned transferred = 0;
+        int remain = load_size;
+        int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -1;
@@ -198,8 +198,8 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
 
     //Load value starts before message and ends before it (e.g., DUE on a cacheline word that was not the demand load)
     } else if (offset+load_size < 0) {
-        unsigned remain = load_size;
-        unsigned transferred = 0;
+        int remain = load_size;
+        int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -1;
@@ -218,8 +218,8 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
 
     //Load value starts after message and ends after it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
     } else if (offset > msg_size) {
-        unsigned remain = load_size;
-        unsigned transferred = 0;
+        int remain = load_size;
+        int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //positive offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -1;

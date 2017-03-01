@@ -168,11 +168,17 @@ struct dueinfo {
 #define DUE_IN(fname, seqnum, variable) \
     ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
+#define DEFAULT_DUE_SPRINTF(fname, seqnum, dueinfo) \
+    sprintf(dueinfo->expl, "Unknown program context. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %u bytes.\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, "<UNKNOWN>", "<UNKNOWN>", DUE_INFO(fname, seqnum).demand_vaddr, DUE_INFO(fname, seqnum).load_size); \
+    sprintf(dueinfo->type_name, "%s", "<UNKNOWN>"); \
+
+#define MULTIPLE_VARIABLES_DUE_SPRINTF(fname, seqnum, dueinfo) \
+    sprintf(dueinfo->expl, "Multiple variables affected. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %u bytes.\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, "<MULTIPLE>", "<MULTIPLE>", DUE_INFO(fname, seqnum).demand_vaddr, DUE_INFO(fname, seqnum).load_size); \
+    sprintf(dueinfo->type_name, "%s", "<UNKNOWN>"); \
+
 #define DUE_IN_SPRINTF(fname, seqnum, variable, type, dueinfo) \
-    if (DUE_IN(fname, seqnum, variable)) { \
-        sprintf(dueinfo->expl, "DUE in %s(), PC %p, bad addr %p, type %s, var %s [%p, %p). Demand addr: %p, %u bytes.\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable), DUE_INFO(fname, seqnum).demand_vaddr, DUE_INFO(fname, seqnum).load_size); \
-        sprintf(dueinfo->type_name, "%s", #type); \
-    } \
+    sprintf(dueinfo->expl, "DUE in %s(), PC %p, bad addr %p, type %s, var %s [%p, %p). Demand addr: %p, %u bytes.\n", #fname, DUE_INFO(fname, seqnum).tf.epc, DUE_INFO(fname, seqnum).tf.badvaddr, #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable), DUE_INFO(fname, seqnum).demand_vaddr, DUE_INFO(fname, seqnum).load_size); \
+    sprintf(dueinfo->type_name, "%s", #type); \
 
 #define INJECT_DUE_INSTRUCTION(start_tick_offset, stop_tick_offset) \
     asm volatile("custom0 0,%0,%1,0;" \

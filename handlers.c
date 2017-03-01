@@ -30,8 +30,8 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    recovery_context->recovery_mode = -1;
-    sprintf(recovery_context->expl, "Unknown error scope");
+    recovery_context->recovery_mode = 1;
+    DEFAULT_DUE_SPRINTF(main, overall, recovery_context)
     /***************************************************************************/
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
@@ -48,8 +48,8 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
 
     /********** Ensure state is properly committed before returning ************/
     if (variable_matches > 1) { //Bail out if multiple variables per message
-        recovery_context->recovery_mode = -1;
-        sprintf(recovery_context->expl, "DUE recovery bailout, multiple variables matched");
+        recovery_context->recovery_mode = 1;
+        MULTIPLE_VARIABLES_DUE_SPRINTF(main, overall, recovery_context)
     }
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, overall, recovery_context)
@@ -67,8 +67,8 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    recovery_context->recovery_mode = -1;
-    sprintf(recovery_context->expl, "Unknown error scope");
+    recovery_context->recovery_mode = 1;
+    DEFAULT_DUE_SPRINTF(main, init, recovery_context)
     /***************************************************************************/
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
@@ -112,8 +112,8 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
 
     /********** Ensure state is properly committed before returning ************/
     if (variable_matches > 1) { //Bail out if multiple variables per message
-        recovery_context->recovery_mode = -1;
-        sprintf(recovery_context->expl, "DUE recovery bailout, multiple variables matched");
+        recovery_context->recovery_mode = 1;
+        MULTIPLE_VARIABLES_DUE_SPRINTF(main, init, recovery_context)
     }
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, init, recovery_context);
@@ -131,8 +131,8 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
     /***************************************************************************/
 
     /******************************* INIT **************************************/
-    recovery_context->recovery_mode = -1;
-    sprintf(recovery_context->expl, "Unknown error scope");
+    recovery_context->recovery_mode = 1;
+    DEFAULT_DUE_SPRINTF(main, compute, recovery_context)
     /***************************************************************************/
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
@@ -164,8 +164,8 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
 
     /********** Ensure state is properly committed before returning ************/
     if (variable_matches > 1) { //Bail out if multiple variables per message
-        recovery_context->recovery_mode = -1;
-        sprintf(recovery_context->expl, "DUE recovery bailout, multiple variables matched");
+        recovery_context->recovery_mode = 1;
+        MULTIPLE_VARIABLES_DUE_SPRINTF(main, compute, recovery_context)
     }
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, compute, recovery_context)

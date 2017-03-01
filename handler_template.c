@@ -26,7 +26,7 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
 
     /******************************* INIT **************************************/
     recovery_context->recovery_mode = -1;
-    sprintf(recovery_context->expl, "Unknown error scope");
+    DEFAULT_DUE_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
     /***************************************************************************/
     
     /********************** CORRECTNESS-CRITICAL -- FORCE CRASH ****************/
@@ -77,7 +77,7 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
     /********** Ensure state is properly committed before returning ************/
     if (variable_matches > 1) { //Bail out if multiple variables per message
         recovery_context->recovery_mode = -1;
-        sprintf(recovery_context->expl, "DUE recovery bailout, multiple variables matched");
+        MULTIPLE_VARIABLES_DUE_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
     }
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)

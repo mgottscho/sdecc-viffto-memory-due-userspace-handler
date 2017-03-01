@@ -208,12 +208,12 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
         if (!copy_word(recovered_message, &(user_context.recovered_message))) {
             return user_context.recovery_mode; //Successful case
         } else {
-            user_context.recovery_mode = -1;
+            user_context.recovery_mode = -2;
             return user_context.recovery_mode;
         }
     }
 
-    user_context.recovery_mode = -1;
+    user_context.recovery_mode = -3;
     return user_context.recovery_mode;
 }
 
