@@ -29,6 +29,8 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("---------------------------\n");
         
         printf("----- Error location ------\n");
+        printf("badvaddr = %p\n", dueinfo->tf.badvaddr);
+        printf("demand_vaddr = %p\n", dueinfo->demand_vaddr);
         printf("error_in_stack = %d\n", dueinfo->error_in_stack);
         printf("error_in_text = %d\n", dueinfo->error_in_text);
         printf("error_in_data = %d\n", dueinfo->error_in_data);
@@ -132,11 +134,12 @@ void pop_user_memory_due_trap_handler() {
     g_handler_sp--;
 }
 
-int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset) {
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset) {
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
     user_context.valid = 1;
+    user_context.demand_vaddr = demand_vaddr;
     user_context.error_in_stack = 0;
     user_context.error_in_text = 0;
     user_context.error_in_data = 0;
