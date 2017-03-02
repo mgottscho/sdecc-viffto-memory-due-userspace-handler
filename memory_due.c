@@ -17,7 +17,6 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("\n");
         printf("************* A memory DUE was recovered! **********\n");
         printf("\n");
-       
         printf("-------- Trap frame -------\n");
         dump_tf(&(dueinfo->tf));
         printf("---------------------------\n");
@@ -39,17 +38,20 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("---------------------------\n");
         printf("\n");
         printf("---- Demand load info -----\n");
-        if (dueinfo->float_regfile) {
+        if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 1) {
             printf("Demand load type: floating-point\n");
             printf("Demand load destination register: %s\n", g_float_regnames[dueinfo->load_dest_reg]);
-        } else {
+        } else if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 0) {
             printf("Demand load type: integer\n");
             printf("Demand load destination register: %s\n", g_int_regnames[dueinfo->load_dest_reg]);
+        } else { //Inst fetch
+            printf("Demand load type: instruction fetch\n");
         }
         printf("Demand load width: %d\n", dueinfo->recovered_load_value.size);
         printf("---------------------------\n");
         printf("\n");
         printf("----- Error location ------\n");
+        printf("Memory region type: %s\n", (dueinfo->mem_type == 0 ? "data" : "instruction"));
         printf("Victim message virtual address: %p\n", dueinfo->tf.badvaddr);
         printf("Demand load virtual address: %p\n", dueinfo->demand_vaddr);
         printf("Demand load-to-message offset: %d\n", dueinfo->load_message_offset);
@@ -145,7 +147,7 @@ void pop_user_memory_due_trap_handler() {
     g_handler_sp--;
 }
 
-int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset) {
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type) {
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
@@ -163,6 +165,7 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     user_context.load_message_offset = 0;
     user_context.type_name[0] = '\0';
     user_context.expl[0] = '\0';
+    user_context.mem_type = mem_type;
 
     //Copy DUE handler setup context
     memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, NAME_SIZE);
@@ -180,15 +183,18 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     user_context.load_message_offset = load_message_offset;
     user_context.recovery_mode = 1;
 
+    if (user_context.mem_type != 0 && user_context.mem_type != 1)
+        user_context.valid = 0;
+
     if (user_context.load_size < 0 || user_context.load_size > sizeof(unsigned long))
         user_context.valid = 0;
 
-    if (user_context.float_regfile != 0 && user_context.float_regfile != 1)
+    if (user_context.mem_type == 0 && (user_context.float_regfile != 0 && user_context.float_regfile != 1))
         user_context.valid = 0;
     
-    if (user_context.load_dest_reg < 0 || (user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR))
+    if (user_context.mem_type == 0 && (user_context.load_dest_reg < 0 || (user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR)))
         user_context.valid = 0;
-    
+
     //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
     if (load_value_from_message(recovered_message, &user_context.recovered_load_value, cacheline, load_size, load_message_offset))
         user_context.valid = 0;
@@ -224,8 +230,11 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
         g_handler_stack[g_handler_sp].fptr &&
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
                  ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-        user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
-        copy_word(recovered_message, &(user_context.recovered_message));
+        if (user_context.mem_type == 0) {
+            user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
+            copy_word(recovered_message, &(user_context.recovered_message));
+        } else
+            user_context.recovery_mode = 1;
         return user_context.recovery_mode;
     }
 

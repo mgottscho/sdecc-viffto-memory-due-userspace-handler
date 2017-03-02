@@ -54,6 +54,7 @@ struct dueinfo {
     short float_regfile;
     short load_message_offset;
     int recovery_mode;
+    short mem_type;
     char type_name[NAME_SIZE];
     char expl[EXPL_SIZE]; 
 };
@@ -151,6 +152,7 @@ struct dueinfo {
         DUE_INFO(fname, seqnum).float_regfile = src->float_regfile; \
         DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
         DUE_INFO(fname, seqnum).recovery_mode = src->recovery_mode; \
+        DUE_INFO(fname, seqnum).mem_type = src->mem_type; \
         for (int i = 0; i < NAME_SIZE; i++) { \
             DUE_INFO(fname, seqnum).type_name[i] = src->type_name[i]; \
             if (src->type_name[i] == '\0') \
@@ -205,7 +207,7 @@ extern size_t g_handler_sp;
 void dump_dueinfo(dueinfo_t* dueinfo);
 void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
-int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset);
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type);
 void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);

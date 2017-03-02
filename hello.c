@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
     for (i = 0; i < ARRAY_SIZE; i++) {
         //Semi-controlled data injection
         if (!injected_compute && i % 10 == 0) {
-            //injected_compute = 1;
-            INJECT_DUE_DATA(1,10)
+            injected_compute = 1;
+            INJECT_DUE_INSTRUCTION(1,10)
         }
         y[i] = sin(x[i]);
     }

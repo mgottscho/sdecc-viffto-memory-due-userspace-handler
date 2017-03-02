@@ -237,7 +237,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         }
     
     } else { //Something went wrong
-        return -2; 
+        return 0;  //TEMP
     }
 
     load_value->size = load_size;
