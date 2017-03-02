@@ -48,7 +48,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         }
         printf("Demand load width: %d\n", dueinfo->recovered_load_value.size);
         printf("---------------------------\n");
-        
+        printf("\n");
         printf("----- Error location ------\n");
         printf("Victim message virtual address: %p\n", dueinfo->tf.badvaddr);
         printf("Demand load virtual address: %p\n", dueinfo->demand_vaddr);
@@ -75,12 +75,12 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
             printf("The DUE appears to have occurred in a subroutine.\n");
         printf("---------------------------\n");
-
+        printf("\n");
         printf("----- Recovered data ------\n");
         printf("Recovered victim message: 0x");
-        printf("Victim message width: %lu\n", dueinfo->recovered_message.size);
         dump_word(&(dueinfo->recovered_message));
         printf("\n");
+        printf("Victim message width: %lu\n", dueinfo->recovered_message.size);
         printf("Recovered demand load: 0x");
         dump_word(&(dueinfo->recovered_load_value));
         if (dueinfo->load_message_offset + dueinfo->load_size < 0 || dueinfo->load_message_offset >= dueinfo->recovered_message.size)
@@ -99,7 +99,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
                 break;
         }
         printf("---------------------------\n");
-        
+        printf("\n");
         printf("----- DUE explanation -----\n");
         printf("%s", dueinfo->expl);
         printf("---------------------------\n");
@@ -266,7 +266,10 @@ void dump_cacheline(due_cacheline_t* cl) {
 void dump_setup(due_handler_t *setup) {
    printf("DUE handler name: %s\n", setup->name);
    printf("DUE handler user function: %p\n", setup->fptr); 
-   printf("Handler invocations: %d\n", setup->invocations);
+   printf("Handler invocations: %d", setup->invocations);
+   if (setup->invocations > 1)
+       printf(" (ONLY REPORTING LAST INVOCATION)");
+   printf("\n");
    printf("DUE handling strictness: %d\n", setup->strict); 
    printf("DUE PC region start: %p\n", setup->pc_start);
    printf("DUE PC region end: %p\n", setup->pc_end);
