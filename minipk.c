@@ -151,7 +151,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset < 0 && offset+load_size > 0 && offset+load_size <= msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
@@ -170,7 +170,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset < 0 && offset+load_size > msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
@@ -197,10 +197,10 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         }
 
     //Load value starts before message and ends before it (e.g., DUE on a cacheline word that was not the demand load)
-    } else if (offset+load_size < 0) {
+    } else if (offset+load_size <= 0) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size; //Negative offset
+        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
@@ -220,7 +220,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset >= msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size; //positive offset
+        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
@@ -237,7 +237,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         }
     
     } else { //Something went wrong
-        return 0;  //TEMP
+        return -2; 
     }
 
     load_value->size = load_size;
