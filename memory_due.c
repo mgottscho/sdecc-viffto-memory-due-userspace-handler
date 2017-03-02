@@ -203,15 +203,15 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     if (tf && !copy_trapframe(&(user_context.tf), tf)) {
         //Analyze trap frame, determine in which segment the memory DUE occured
         void* badvaddr = (void*)(tf->badvaddr);
-        if (tf->badvaddr >= tf->gpr[2] && tf->badvaddr < tf->gpr[2]+64) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +64 bytes from the tf's sp (because it grows down)
+        if (badvaddr >= (void*)(tf->gpr[2]) && badvaddr < (void*)(tf->gpr[2]+64)) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +64 bytes from the tf's sp (because it grows down)
             user_context.error_in_stack = 1;
-        if (badvaddr >= _ftext && badvaddr < _etext)
+        if (badvaddr >= (void*)(&_ftext) && badvaddr < (void*)(&_etext))
             user_context.error_in_text = 1;
-        if (badvaddr >= _fdata && badvaddr < _edata)
+        if (badvaddr >= (void*)(&_fdata) && badvaddr < (void*)(&_edata))
             user_context.error_in_data = 1;
-        if (badvaddr >= _edata && badvaddr < _fbss)
+        if (badvaddr >= (void*)(&_edata) && badvaddr < (void*)(&_fbss))
             user_context.error_in_sdata = 1;
-        if (badvaddr >= _fbss && badvaddr < _end)
+        if (badvaddr >= (void*)(&_fbss) && badvaddr < (void*)(&_end))
             user_context.error_in_bss = 1;
         user_context.error_in_heap = 0; //TODO
     } else
