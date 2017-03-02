@@ -6,7 +6,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#define ARRAY_SIZE 10000
+#define ARRAY_SIZE 100
 
 #endif
 

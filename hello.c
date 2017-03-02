@@ -30,10 +30,10 @@ int main(int argc, char** argv) {
     i = 0;
     for (i = 0; i < ARRAY_SIZE; i++) {
         //Semi-controlled data injection
-        if (!injected_init && i == ARRAY_SIZE-10) {
+        /*if (!injected_init && i == ARRAY_SIZE-10) {
             injected_init = 1;
             INJECT_DUE_DATA(0,0)
-        }
+        }*/
         x[i] = (float)(i)/10;
     }
     END_DUE_RECOVERY(main, init)
@@ -42,9 +42,9 @@ int main(int argc, char** argv) {
     //Computation
     for (i = 0; i < ARRAY_SIZE; i++) {
         //Semi-controlled data injection
-        if (!injected_compute && i == ARRAY_SIZE-20) {
-            injected_compute = 1;
-            INJECT_DUE_DATA(3,3)
+        if (!injected_compute && i % 10 == 0) {
+            //injected_compute = 1;
+            INJECT_DUE_DATA(1,10)
         }
         y[i] = sin(x[i]);
     }
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
    
     //Sine printout viz
     long spot = 0;
-    for (i = ARRAY_SIZE-100; i < ARRAY_SIZE; i++) {
+    for (i = 0; i < ARRAY_SIZE; i++) {
        spot = (long)(y[i]*60)+60; 
        for (long j = 0; j < spot; j++)
            printf(" ");
@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
            printf(" ");
        printf("\n");
     }
-    for (i = ARRAY_SIZE-100; i < ARRAY_SIZE; i++)
+    for (i = 0; i < ARRAY_SIZE; i++)
         printf("x[%d]: %.8f    y[%d]: %.8f\n", i, x[i], i, y[i]);
     printf("Hello World!\n");
     

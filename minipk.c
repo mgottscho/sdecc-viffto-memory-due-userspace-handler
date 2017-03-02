@@ -56,7 +56,7 @@ int copy_word(word_t* dest, word_t* src) {
        return 0;
    }
 
-   return 1;
+   return -2;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
@@ -70,7 +70,7 @@ int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
         return 0;
     }
 
-    return 1;
+    return -2;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
@@ -83,7 +83,7 @@ int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
         return 0;
     }
 
-    return 1;
+    return -2;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
@@ -99,7 +99,7 @@ int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
        return 0;
    } 
    
-   return 1;
+   return -2;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
@@ -110,13 +110,13 @@ int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src) {
        return 0;
    }
 
-   return 1;
+   return -2;
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
 int load_value_from_message(word_t* recovered_message, word_t* load_value, due_cacheline_t* cl, unsigned load_size, int offset) {
     if (!recovered_message || !load_value || !cl)
-        return -1;
+        return -2;
     
     int msg_size = recovered_message->size; 
     int blockpos = cl->blockpos;
@@ -153,7 +153,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
-            return -1;
+            return -2;
 
         while (curr_blockpos < blockpos) {
             memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
@@ -172,7 +172,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
-            return -1;
+            return -2;
 
         while (curr_blockpos < blockpos) {
             memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
@@ -202,7 +202,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //Negative offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
-            return -1;
+            return -2;
 
         while (remain > 0) {
             if (msg_size > remain) {
@@ -216,13 +216,13 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
             curr_blockpos++;
         }
 
-    //Load value starts after message and ends after it -- TODO (e.g., DUE on a cacheline word that was not the demand load)
-    } else if (offset > msg_size) {
+    //Load value starts after message and ends after it (e.g., DUE on a cacheline word that was not the demand load)
+    } else if (offset >= msg_size) {
         int remain = load_size;
         int transferred = 0;
         int curr_blockpos = blockpos + offset/msg_size; //positive offset
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
-            return -1;
+            return -2;
 
         while (remain > 0) {
             if (msg_size > remain) {
@@ -237,7 +237,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
         }
     
     } else { //Something went wrong
-        return -1; 
+        return -2; 
     }
 
     load_value->size = load_size;
@@ -407,13 +407,13 @@ int set_float_register(unsigned frd, unsigned long raw_value) {
                          : "r" (raw_value));
             return 0;
         default: //Bad register
-            return -1;
+            return -2;
     }
 }
 
 int get_float_register(unsigned frd, unsigned long* raw_value) {
     if (!raw_value)
-        return -1;
+        return -2;
 
     unsigned long tmp;
     switch (frd) {
@@ -578,7 +578,7 @@ int get_float_register(unsigned frd, unsigned long* raw_value) {
                          :);
             break;
         default: //Bad register
-            return -1;
+            return -2;
     }
 
     *raw_value = tmp;
