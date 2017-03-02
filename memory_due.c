@@ -68,6 +68,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
             printf("bss-segment ");
         if (dueinfo->error_in_heap)
             printf("heap ");
+        printf("\n");
         /*printf("_ftext: %p\n", &_ftext);
         printf("_etext: %p\n", &_etext);
         printf("_fdata: %p\n", &_fdata);
@@ -230,11 +231,8 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
         g_handler_stack[g_handler_sp].fptr &&
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
                  ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-        if (user_context.mem_type == 0) {
-            user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
-            copy_word(recovered_message, &(user_context.recovered_message));
-        } else
-            user_context.recovery_mode = 1;
+        user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
+        copy_word(recovered_message, &(user_context.recovered_message));
         return user_context.recovery_mode;
     }
 

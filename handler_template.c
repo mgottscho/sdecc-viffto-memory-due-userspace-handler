@@ -79,6 +79,8 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
         recovery_context->recovery_mode = -1;
         MULTIPLE_VARIABLES_DUE_SPRINTF(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
     }
+    if (recovery_context->mem_type == 1) //any instruction DUE
+        recovery_context->recovery_mode = 1;
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
     return recovery_context->recovery_mode;

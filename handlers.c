@@ -25,6 +25,7 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
     static unsigned invocations = 0;
     invocations++;
+    load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, overall, recovery_context)
     unsigned variable_matches = 0;
     /***************************************************************************/
@@ -51,6 +52,8 @@ int DUE_RECOVERY_HANDLER(main, overall, dueinfo_t *recovery_context) {
         recovery_context->recovery_mode = -1;
         MULTIPLE_VARIABLES_DUE_SPRINTF(main, overall, recovery_context)
     }
+    if (recovery_context->mem_type == 1) //any instruction DUE
+        recovery_context->recovery_mode = 1;
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, overall, recovery_context)
     return recovery_context->recovery_mode;
@@ -115,6 +118,8 @@ int DUE_RECOVERY_HANDLER(main, init, dueinfo_t *recovery_context) {
         recovery_context->recovery_mode = -1;
         MULTIPLE_VARIABLES_DUE_SPRINTF(main, init, recovery_context)
     }
+    if (recovery_context->mem_type == 1) //any instruction DUE
+        recovery_context->recovery_mode = 1;
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, init, recovery_context);
     return recovery_context->recovery_mode;
@@ -167,6 +172,8 @@ int DUE_RECOVERY_HANDLER(main, compute, dueinfo_t *recovery_context) {
         recovery_context->recovery_mode = 1;
         MULTIPLE_VARIABLES_DUE_SPRINTF(main, compute, recovery_context)
     }
+    if (recovery_context->mem_type == 1) //any instruction DUE
+        recovery_context->recovery_mode = 1;
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(main, compute, recovery_context)
     return recovery_context->recovery_mode;
