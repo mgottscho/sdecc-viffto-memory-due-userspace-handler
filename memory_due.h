@@ -13,7 +13,7 @@ extern "C" {
 #include <stdio.h>
 #include "minipk.h"
 
-#define NAME_SIZE 32
+#define NAME_SIZE 64
 #define EXPL_SIZE 256
 #define MAX_REGISTERED_HANDLERS 8
 
