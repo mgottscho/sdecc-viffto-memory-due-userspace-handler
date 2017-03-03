@@ -3,17 +3,11 @@
  * Email: mgottscho@ucla.edu
  * 
  * Handler template code for dealing with DUEs.
- * DO NOT modify, compile, or include this file directly!
+ * DO NOT compile or include this file directly!
  */ 
 
-#include "memory_due.h"
-
-#define YOUR_FUNCTION_NAME foo
-#define YOUR_IDENTIFIER bar
-#define YOUR_CRITICAL_VARIABLE crit_var
-#define YOUR_APPROXIMABLE_VARIABLE approx_var
-#define YOUR_CUSTOM_VARIABLE custom_var
-#define SOME_TYPE unsigned long 
+#include <memory_due.h>
+#include "handler_template.h"
 
 int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
