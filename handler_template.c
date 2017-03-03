@@ -9,6 +9,11 @@
 #include <memory_due.h>
 #include "handler_template.h"
 
+DECL_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER)
+DECL_RECOVERY(YOUR_FUNCTION_NAME, YOUR_CRITICAL_VARIABLE, SOME_TYPE)
+DECL_RECOVERY(YOUR_FUNCTION_NAME, YOUR_APPROXIMABLE_VARIABLE, SOME_TYPE)
+DECL_RECOVERY(YOUR_FUNCTION_NAME, YOUR_CUSTOM_VARIABLE, SOME_TYPE)
+
 int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
     static unsigned invocations = 0;
