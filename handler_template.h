@@ -9,6 +9,10 @@
 #ifndef SDECC_HANDLERS_H
 #define SDECC_HANDLERS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <memory_due.h>
 #include <minipk.h>
 
@@ -27,5 +31,9 @@ DECL_RECOVERY_EXTERN(YOUR_FUNCTION_NAME, YOUR_CUSTOM_VARIABLE, SOME_TYPE)
 
 //Declare handler functions
 int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recovery_context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
