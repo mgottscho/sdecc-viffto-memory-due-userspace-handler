@@ -6,6 +6,10 @@
 #ifndef MINIPK_H
 #define MINIPK_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 
 #define NUM_GPR 32
@@ -62,4 +66,7 @@ int set_float_register(unsigned frd, unsigned long raw_value); //Originally defi
 extern const char* g_int_regnames[];
 extern const char* g_float_regnames[];
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
 #endif
