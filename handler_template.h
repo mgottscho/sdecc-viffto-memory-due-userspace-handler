@@ -10,6 +10,7 @@
 #define SDECC_HANDLERS_H
 
 #include <memory_due.h>
+#include <minipk.h>
 
 #define YOUR_FUNCTION_NAME foo
 #define YOUR_IDENTIFIER bar

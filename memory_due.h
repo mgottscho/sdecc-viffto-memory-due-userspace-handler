@@ -6,6 +6,7 @@
 #ifndef MEMORY_DUE_H
 #define MEMORY_DUE_H
 
+#include <stdio.h>
 #include "minipk.h"
 
 #define NAME_SIZE 32
