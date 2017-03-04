@@ -210,7 +210,7 @@ extern due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS];
 extern size_t g_handler_sp;
 
 void dump_dueinfo(dueinfo_t* dueinfo);
-void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
+void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
 int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type);
 void dump_word(word_t* w);

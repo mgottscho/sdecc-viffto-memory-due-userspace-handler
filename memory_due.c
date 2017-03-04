@@ -110,7 +110,7 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("No valid DUE info.\n");
 }
 
-void push_user_memory_due_trap_handler(char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
+void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
     if (g_handler_sp+1 >= MAX_REGISTERED_HANDLERS) {
         printf("Failed to push new DUE handler, MAX_REGISTERED_HANDLERS has been exceeded.\n");
         return;
