@@ -47,13 +47,13 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         } else { //Inst fetch
             printf("Demand load type: instruction fetch\n");
         }
-        printf("Demand load width: %d\n", dueinfo->recovered_load_value.size);
+        printf("Demand load width: %lu\n", dueinfo->recovered_load_value.size);
         printf("---------------------------\n");
         printf("\n");
         printf("----- Error location ------\n");
         printf("Memory region type: %s\n", (dueinfo->mem_type == 0 ? "data" : "instruction"));
-        printf("Victim message virtual address: %p\n", dueinfo->tf.badvaddr);
-        printf("Demand load virtual address: %p\n", dueinfo->demand_vaddr);
+        printf("Victim message virtual address: %p\n", (void*)(dueinfo->tf.badvaddr));
+        printf("Demand load virtual address: %p\n", (void*)(dueinfo->demand_vaddr));
         printf("Demand load-to-message offset: %d\n", dueinfo->load_message_offset);
         printf("The error is in the: ");
         if (dueinfo->error_in_stack)
@@ -284,6 +284,7 @@ void dump_setup(due_handler_t *setup) {
 }
 
 void dump_load_value(word_t* load, const char* type_name) {
+    //TODO: Is it possible to get around strict aliasing warnings in code like below without relying on compiler-undefined behavior? Perhaps use memcpy()?
     unsigned size = load->size;
     if (strcmp(type_name, "unsigned char") == 0 && size == sizeof(unsigned char)) {
         unsigned char val = (unsigned char)(*load->bytes);
@@ -315,15 +316,15 @@ void dump_load_value(word_t* load, const char* type_name) {
 
     } else if (strcmp(type_name, "long") == 0 && size == sizeof(long)) {
         long val = (long)(*((long*)(load->bytes)));
-        printf("Recovered load value (%s): %l\n", type_name, val);
+        printf("Recovered load value (%s): %ld\n", type_name, val);
 
     } else if (strcmp(type_name, "unsigned long long") == 0 && size == sizeof(unsigned long long)) {
         unsigned long long val = (unsigned long long)(*((unsigned long long*)(load->bytes)));
-        printf("Recovered load value (%s): %l\n", type_name, val);
+        printf("Recovered load value (%s): %llu\n", type_name, val);
 
     } else if (strcmp(type_name, "long long") == 0 && size == sizeof(long long)) {
         long long val = (long long)(*((long long*)(load->bytes)));
-        printf("Recovered load value (%s): %l\n", type_name, val);
+        printf("Recovered load value (%s): %lld\n", type_name, val);
 
     } else if (strcmp(type_name, "void*") == 0 && size == sizeof(void*)) {
         void* val = (void*)((void*)(load->bytes));
@@ -339,7 +340,7 @@ void dump_load_value(word_t* load, const char* type_name) {
 
     } else if (strcmp(type_name, "long double") == 0 && size == sizeof(long double)) {
         long double val = (long double)(*((long double*)(load->bytes)));
-        printf("Recovered load value (%s): %f\n", type_name, val);
+        printf("Recovered load value (%s): %Lf\n", type_name, val);
 
     } else {
         printf("Recovered load value (type %s, length %u bytes)\n", type_name, size);
