@@ -355,3 +355,10 @@ void dump_float_regs(float_trapframe_t* float_tf) {
     }
   }
 }
+
+unsigned long get_sim_tick_counter() {
+    unsigned long tick;
+    asm volatile("csrr %0, 0xa" : "=r"(tick)); 
+    return tick;
+}
+

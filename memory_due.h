@@ -219,6 +219,7 @@ void dump_cacheline(due_cacheline_t* cl);
 void dump_setup(due_handler_t *setup);
 void dump_load_value(word_t* load, const char* type_name);
 void dump_float_regs(float_trapframe_t* float_tf);
+unsigned long get_sim_tick_counter();
 
 #ifdef __cplusplus
 } // extern "C"
