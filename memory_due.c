@@ -227,16 +227,22 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
         user_context.valid = 0;
         
     //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
-    if (user_context.valid == 1 && 
-        g_handler_stack[g_handler_sp].fptr &&
+    if (user_context.valid == 1) {
+        if (g_handler_stack[g_handler_sp].fptr &&
            (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
-                 ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-        user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
-        copy_word(recovered_message, &(user_context.recovered_message));
-        return user_context.recovery_mode;
+           ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
+                user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
+                copy_word(recovered_message, &(user_context.recovered_message));
+                return user_context.recovery_mode;
+        } else {
+            //Non-registered or out-of-bounds handler
+            user_context.recovery_mode = -2;
+            return user_context.recovery_mode;
+        }
     }
 
-    user_context.recovery_mode = -2;
+    //Handler problem, not app's fault
+    user_context.recovery_mode = -3;
     return user_context.recovery_mode;
 }
 
