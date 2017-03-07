@@ -151,14 +151,16 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset < 0 && offset+load_size > 0 && offset+load_size <= msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
+        int offset_in_block = (offset < 0 ? -offset : offset) % msg_size;
+        int curr_blockpos = blockpos + offset/msg_size + (offset_in_block != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
         while (curr_blockpos < blockpos) {
-            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, msg_size-offset_in_block);
             curr_blockpos++;
-            remain -= msg_size;
+            offset_in_block = 0;
+            remain -= msg_size - offset_in_block;
             transferred = load_size - remain;
         }
         memcpy(load_value->bytes+transferred, recovered_message->bytes, remain);
@@ -170,14 +172,16 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset < 0 && offset+load_size > msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
+        int offset_in_block = (offset < 0 ? -offset : offset) % msg_size;
+        int curr_blockpos = blockpos + offset/msg_size + (offset_in_block != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
         while (curr_blockpos < blockpos) {
-            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
+            memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, msg_size - offset_in_block);
             curr_blockpos++;
-            remain -= msg_size;
+            offset_in_block = 0;
+            remain -= msg_size - offset_in_block;
             transferred = load_size - remain;
         }
         memcpy(load_value->bytes+transferred, recovered_message->bytes, msg_size);
@@ -200,40 +204,44 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     } else if (offset+load_size <= 0) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
+        int offset_in_block = (offset < 0 ? -offset : offset) % msg_size;
+        int curr_blockpos = blockpos + offset/msg_size + (offset_in_block != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
         while (remain > 0) {
-            if (msg_size > remain) {
-                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, remain);
+            if (msg_size - offset_in_block > remain) {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, remain);
                 remain = 0;
             } else {
-                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
-                remain -= msg_size;
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, msg_size - offset_in_block);
+                remain -= msg_size - offset_in_block;
             }
             transferred = load_size - remain;
             curr_blockpos++;
+            offset_in_block = 0;
         }
 
     //Load value starts after message and ends after it (e.g., DUE on a cacheline word that was not the demand load)
     } else if (offset >= msg_size) {
         int remain = load_size;
         int transferred = 0;
-        int curr_blockpos = blockpos + offset/msg_size + (offset < 0 && offset % msg_size != 0 ? -1 : 0); 
+        int offset_in_block = (offset < 0 ? -offset : offset) % msg_size;
+        int curr_blockpos = blockpos + offset/msg_size + (offset_in_block != 0 ? -1 : 0); 
         if (curr_blockpos < 0 || curr_blockpos > cl->size) //Something went wrong
             return -2;
 
         while (remain > 0) {
-            if (msg_size > remain) {
-                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, remain);
+            if (msg_size - offset_in_block > remain) {
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, remain);
                 remain = 0;
             } else {
-                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes, msg_size);
-                remain -= msg_size;
+                memcpy(load_value->bytes+transferred, cl->words[curr_blockpos].bytes+offset_in_block, msg_size - offset_in_block);
+                remain -= msg_size - offset_in_block;
             }
             transferred = load_size - remain;
             curr_blockpos++;
+            offset_in_block = 0;
         }
     
     } else { //Something went wrong

@@ -69,12 +69,6 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         if (dueinfo->error_in_heap)
             printf("heap ");
         printf("\n");
-        /*printf("_ftext: %p\n", &_ftext);
-        printf("_etext: %p\n", &_etext);
-        printf("_fdata: %p\n", &_fdata);
-        printf("_edata: %p\n", &_edata);
-        printf("_fbss: %p\n", &_fbss);
-        printf("_end: %p\n", &_end);*/
         if ((void*)(dueinfo->tf.epc) < dueinfo->setup.pc_start || (void*)(dueinfo->tf.epc) > dueinfo->setup.pc_end)
             printf("The DUE appears to have occurred in a subroutine.\n");
         printf("---------------------------\n");
@@ -112,19 +106,19 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
 
 void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict) {
     //TODO FIXME: How to deal with memory errors in this function? It happens somewhat often..
+    //TODO FIXME: memory barriers, atomicity, etc
     if (g_handler_sp+1 >= MAX_REGISTERED_HANDLERS) {
         printf("Failed to push new DUE handler, MAX_REGISTERED_HANDLERS has been exceeded.\n");
         return;
     }
 
     //Save necessary global user state
-    g_handler_sp++;
-    memcpy(g_handler_stack[g_handler_sp].name, name, NAME_SIZE);
-    g_handler_stack[g_handler_sp].fptr = fptr;
-    g_handler_stack[g_handler_sp].strict = strict;
-    g_handler_stack[g_handler_sp].pc_start = pc_start;
-    g_handler_stack[g_handler_sp].pc_end = pc_end;
-    g_handler_stack[g_handler_sp].restart = 0; //Set decision should be made by user at time of DUE
+    memcpy(g_handler_stack[g_handler_sp+1].name, name, NAME_SIZE);
+    g_handler_stack[g_handler_sp+1].fptr = fptr;
+    g_handler_stack[g_handler_sp+1].strict = strict;
+    g_handler_stack[g_handler_sp+1].pc_start = pc_start;
+    g_handler_stack[g_handler_sp+1].pc_end = pc_end;
+    g_handler_stack[g_handler_sp+1].restart = 0; //Set decision should be made by user at time of DUE
 
     //First invocation only
     static int init = 0;
@@ -137,10 +131,12 @@ void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handl
                      : "r" (entry_trap_fptr));
         init = 1;
     }
+    g_handler_sp++;
 }
 
 void pop_user_memory_due_trap_handler() {
     //TODO FIXME: How to deal with memory errors in this function? It happens somewhat often..
+    //TODO FIXME: memory barriers, atomicity, etc
     if (g_handler_sp == 0) {
         printf("Failed to pop DUE handler stack, none are currently registered.\n");
         return;
@@ -151,6 +147,7 @@ void pop_user_memory_due_trap_handler() {
 }
 
 int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type) {
+    //TODO FIXME: How to deal with memory errors in this function? Re-entrant, etc.
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
     //Init
@@ -162,10 +159,10 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     user_context.error_in_sdata = 0;
     user_context.error_in_bss = 0;
     user_context.error_in_heap = 0;
-    user_context.load_size = 0;
-    user_context.load_dest_reg = 0;
-    user_context.float_regfile = 0;
-    user_context.load_message_offset = 0;
+    user_context.load_size = load_size;
+    user_context.load_dest_reg = load_dest_reg;
+    user_context.float_regfile = float_regfile;
+    user_context.load_message_offset = load_message_offset;
     user_context.type_name[0] = '\0';
     user_context.expl[0] = '\0';
     user_context.mem_type = mem_type;
@@ -180,10 +177,6 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
 
     copy_word(&user_context.recovered_message, recovered_message);
     
-    user_context.load_size = load_size;
-    user_context.load_dest_reg = load_dest_reg;
-    user_context.float_regfile = float_regfile;
-    user_context.load_message_offset = load_message_offset;
     user_context.recovery_mode = 1;
 
     if (user_context.mem_type != 0 && user_context.mem_type != 1)
