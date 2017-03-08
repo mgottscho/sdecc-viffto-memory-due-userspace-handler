@@ -37,9 +37,9 @@ void dump_tf(trapframe_t* tf)
 {
   tf->gpr[0] = 0;
 
-  for(int i = 0; i < NUM_GPR; i+=4)
+  for(size_t i = 0; i < NUM_GPR; i+=4)
   {
-    for(int j = 0; j < 4; j++)
+    for(size_t j = 0; j < 4; j++)
       printf("%s %016lx%c",g_int_regnames[i+j],tf->gpr[i+j],j < 3 ? ' ' : '\n');
   }
   printf("pc %016lx va %016lx insn       %08x sr %016lx\n", tf->epc, tf->badvaddr,
@@ -48,8 +48,8 @@ void dump_tf(trapframe_t* tf)
 
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_word(word_t* dest, word_t* src) {
-   if (dest && src) {
-       for (int i = 0; i < MAX_WORD_SIZE; i++)
+   if (dest && src && src->size <= MAX_WORD_SIZE) {
+       for (size_t i = 0; i < src->size; i++)
            dest->bytes[i] = src->bytes[i];
        dest->size = src->size;
 
@@ -61,8 +61,8 @@ int copy_word(word_t* dest, word_t* src) {
 
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
-    if (dest && src) {
-        for (int i = 0; i < MAX_CACHELINE_WORDS; i++)
+    if (dest && src && src->size <= MAX_CACHELINE_WORDS) {
+        for (size_t i = 0; i < src->size; i++)
             copy_word(dest->words+i, src->words+i);
         dest->size = src->size;
         dest->blockpos = src->blockpos;
@@ -75,8 +75,8 @@ int copy_cacheline(due_cacheline_t* dest, due_cacheline_t* src) {
 
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
-    if (dest && src) {
-        for (int i = 0; i < MAX_CANDIDATE_MSG; i++)
+    if (dest && src && src->size <= MAX_CANDIDATE_MSG) {
+        for (size_t i = 0; i < src->size; i++)
             copy_word(dest->candidate_messages+i, src->candidate_messages+i);
         dest->size = src->size;
         
@@ -89,7 +89,7 @@ int copy_candidates(due_candidates_t* dest, due_candidates_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
    if (dest && src) {
-       for (int i = 0; i < NUM_GPR; i++)
+       for (size_t i = 0; i < NUM_GPR; i++)
            dest->gpr[i] = src->gpr[i];
        dest->status = src->status;
        dest->epc = src->epc;
@@ -105,7 +105,7 @@ int copy_trapframe(trapframe_t* dest, trapframe_t* src) {
 //Originally defined in riscv-pk/pk/handlers.c
 int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src) {
    if (dest && src) {
-       for (int i = 0; i < NUM_FPR; i++)
+       for (size_t i = 0; i < NUM_FPR; i++)
            dest->fpr[i] = src->fpr[i];
        return 0;
    }
@@ -114,12 +114,14 @@ int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src) {
 }
 
 //Originally defined in riscv-pk/pk/handlers.c
-int load_value_from_message(word_t* recovered_message, word_t* load_value, due_cacheline_t* cl, unsigned load_size, int offset) {
-    if (!recovered_message || !load_value || !cl)
+int load_value_from_message(word_t* recovered_message, word_t* load_value, due_cacheline_t* cl, size_t load_size, int offset) {
+    if (!recovered_message || !load_value || !cl || load_size > MAX_WORD_SIZE)
         return -2;
-    
-    int msg_size = recovered_message->size; 
-    int blockpos = cl->blockpos;
+   
+    //Init
+    load_value->size = 0;
+    size_t msg_size = recovered_message->size; 
+    size_t blockpos = cl->blockpos;
 
     // ----- Four cases to handle ----
 
@@ -252,7 +254,7 @@ int load_value_from_message(word_t* recovered_message, word_t* load_value, due_c
     return 0;
 }
 
-int set_float_register(unsigned frd, unsigned long raw_value) {
+int set_float_register(size_t frd, unsigned long raw_value) {
     switch (frd) {
         case 0: //f0
             asm volatile("fmv.d.x f0, %0;"
@@ -419,7 +421,7 @@ int set_float_register(unsigned frd, unsigned long raw_value) {
     }
 }
 
-int get_float_register(unsigned frd, unsigned long* raw_value) {
+int get_float_register(size_t frd, unsigned long* raw_value) {
     if (!raw_value)
         return -2;
 

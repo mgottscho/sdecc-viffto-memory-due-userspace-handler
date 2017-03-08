@@ -10,7 +10,7 @@
 #include <string.h>
 
 due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS]; 
-size_t g_handler_sp = 0;
+int g_handler_sp = -1;
 
 void dump_dueinfo(dueinfo_t* dueinfo) {
     if (dueinfo && dueinfo->valid) {
@@ -111,6 +111,10 @@ void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handl
         printf("Failed to push new DUE handler, MAX_REGISTERED_HANDLERS has been exceeded.\n");
         return;
     }
+    if (g_handler_sp+1 < 0) {
+        printf("Failed to push new DUE handler, g_handler_sp == %d\n", g_handler_sp);
+        return;
+    }
 
     //Save necessary global user state
     memcpy(g_handler_stack[g_handler_sp+1].name, name, NAME_SIZE);
@@ -137,7 +141,7 @@ void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handl
 void pop_user_memory_due_trap_handler() {
     //TODO FIXME: How to deal with memory errors in this function? It happens somewhat often..
     //TODO FIXME: memory barriers, atomicity, etc
-    if (g_handler_sp == 0) {
+    if (g_handler_sp < 0) {
         printf("Failed to pop DUE handler stack, none are currently registered.\n");
         return;
     }
@@ -146,7 +150,10 @@ void pop_user_memory_due_trap_handler() {
     g_handler_sp--;
 }
 
-int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type) {
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, size_t load_size, size_t load_dest_reg, int float_regfile, int load_message_offset, int mem_type) {
+    if (g_handler_sp < 0 || g_handler_sp >= MAX_REGISTERED_HANDLERS)
+        return -3;
+
     //TODO FIXME: How to deal with memory errors in this function? Re-entrant, etc.
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
 
@@ -182,13 +189,13 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     if (user_context.mem_type != 0 && user_context.mem_type != 1)
         user_context.valid = 0;
 
-    if (user_context.load_size < 0 || user_context.load_size > sizeof(unsigned long))
+    if (user_context.load_size > sizeof(unsigned long))
         user_context.valid = 0;
 
     if (user_context.mem_type == 0 && (user_context.float_regfile != 0 && user_context.float_regfile != 1))
         user_context.valid = 0;
     
-    if (user_context.mem_type == 0 && (user_context.load_dest_reg < 0 || (user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR)))
+    if (user_context.mem_type == 0 && ((user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR)))
         user_context.valid = 0;
 
     //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
@@ -242,14 +249,14 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
 }
 
 void dump_word(word_t* w) {
-   for (int i = 0; i < w->size; i++)
+   for (size_t i = 0; i < w->size; i++)
        printf("%02x", w->bytes[i]);
 }
 
 void dump_candidate_messages(due_candidates_t* cd) {
    if (cd) {
-       for (int i = 0; i < cd->size; i++) {
-           printf("Candidate message %d: 0x", i);
+       for (size_t i = 0; i < cd->size; i++) {
+           printf("Candidate message %lu: 0x", i);
            dump_word(&(cd->candidate_messages[i]));
            printf("\n");
        }
@@ -259,12 +266,12 @@ void dump_candidate_messages(due_candidates_t* cd) {
 
 void dump_cacheline(due_cacheline_t* cl) {
    if (cl) {
-       for (int i = 0; i < cl->size; i++) {
+       for (size_t i = 0; i < cl->size; i++) {
            if (cl->blockpos != i) {
-               printf("Word %d: 0x", i);
+               printf("Word %lu: 0x", i);
                dump_word(&(cl->words[i]));
            } else
-               printf("Word %d: <CORRUPTED MESSAGE>", i);
+               printf("Word %lu: <CORRUPTED MESSAGE>", i);
            printf("\n");
        }
    } else
@@ -274,7 +281,7 @@ void dump_cacheline(due_cacheline_t* cl) {
 void dump_setup(due_handler_t *setup) {
    printf("DUE handler name: %s\n", setup->name);
    printf("DUE handler user function: %p\n", setup->fptr); 
-   printf("Handler invocations: %d", setup->invocations);
+   printf("Handler invocations: %lu", setup->invocations);
    if (setup->invocations > 1)
        printf(" (ONLY REPORTING LAST INVOCATION)");
    printf("\n");
@@ -286,7 +293,7 @@ void dump_setup(due_handler_t *setup) {
 
 void dump_load_value(word_t* load, const char* type_name) {
     //TODO: Is it possible to get around strict aliasing warnings in code like below without relying on compiler-undefined behavior? Perhaps use memcpy()?
-    unsigned size = load->size;
+    size_t size = load->size;
     if (strcmp(type_name, "unsigned char") == 0 && size == sizeof(unsigned char)) {
         unsigned char val = (unsigned char)(*load->bytes);
         printf("Recovered load value (%s): %c\n", type_name, val);
@@ -344,14 +351,14 @@ void dump_load_value(word_t* load, const char* type_name) {
         printf("Recovered load value (%s): %Lf\n", type_name, val);
 
     } else {
-        printf("Recovered load value (type %s, length %u bytes)\n", type_name, size);
+        printf("Recovered load value (type %s, length %lu bytes)\n", type_name, size);
     }
 }
 
 void dump_float_regs(float_trapframe_t* float_tf) {
-  for(int i = 0; i < NUM_FPR; i+=4)
+  for(size_t i = 0; i < NUM_FPR; i+=4)
   {
-    for(int j = 0; j < 4; j++) {
+    for(size_t j = 0; j < 4; j++) {
         printf("%s %016lx%c",g_float_regnames[i+j],float_tf->fpr[i+j],j < 3 ? ' ' : '\n');
     }
   }

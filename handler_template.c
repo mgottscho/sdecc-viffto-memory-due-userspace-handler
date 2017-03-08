@@ -16,11 +16,11 @@ DECL_RECOVERY(YOUR_FUNCTION_NAME, YOUR_CUSTOM_VARIABLE, SOME_TYPE)
 
 int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recovery_context) {
     /*********** These must come first for macros to work properly  ************/
-    static unsigned invocations = 0;
+    static size_t invocations = 0;
     invocations++;
     load_value_from_message(&recovery_context->recovered_message, &recovery_context->recovered_load_value, &recovery_context->cacheline, recovery_context->load_size, recovery_context->load_message_offset);
     COPY_DUE_INFO(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, recovery_context)
-    unsigned variable_matches = 0;
+    size_t variable_matches = 0;
     /***************************************************************************/
 
     /******************************* INIT **************************************/
@@ -54,9 +54,9 @@ int DUE_RECOVERY_HANDLER(YOUR_FUNCTION_NAME, YOUR_IDENTIFIER, dueinfo_t *recover
         SOME_TYPE candidate_YOUR_CUSTOM_VARIABLE;
 
         //Iterate over candidates
-        for (unsigned i = 0; i < recovery_context->candidates.size; i++) {
+        for (size_t i = 0; i < recovery_context->candidates.size; i++) {
 
-            unsigned legal = 0;
+            int legal = 0;
             //Check legality of candidate for variable here, based on your own program logic
             if (legal) {
                 copy_word(&(recovery_context->recovered_message), recovery_context->candidates.candidate_messages+i);

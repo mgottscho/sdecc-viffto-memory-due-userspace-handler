@@ -35,7 +35,7 @@ struct due_handler {
     void* pc_start;
     void* pc_end;
     int restart;
-    int invocations;
+    unsigned long invocations;
 };
 
 struct dueinfo {
@@ -43,23 +43,23 @@ struct dueinfo {
     trapframe_t tf;
     float_trapframe_t float_tf;
     long demand_vaddr;
-    short error_in_stack;
-    short error_in_text;
-    short error_in_data;
-    short error_in_sdata;
-    short error_in_bss;
-    short error_in_heap;
+    int error_in_stack;
+    int error_in_text;
+    int error_in_data;
+    int error_in_sdata;
+    int error_in_bss;
+    int error_in_heap;
     due_candidates_t candidates;
     due_cacheline_t cacheline;
     struct due_handler setup;
     word_t recovered_message;
     word_t recovered_load_value;
-    short load_size;
-    short load_dest_reg;
-    short float_regfile;
-    short load_message_offset;
+    size_t load_size;
+    size_t load_dest_reg;
+    int float_regfile;
+    int load_message_offset;
     int recovery_mode;
-    short mem_type;
+    int mem_type;
     char type_name[NAME_SIZE];
     char expl[EXPL_SIZE]; 
 };
@@ -176,15 +176,15 @@ struct dueinfo {
     ((void *)(DUE_INFO(fname, seqnum).tf.badvaddr) >= RECOVERY_ADDR(fname, variable) && (void *)(DUE_INFO(fname, seqnum).tf.badvaddr) < RECOVERY_END_ADDR(fname, variable))
 
 #define DEFAULT_DUE_SPRINTF(fname, seqnum, dueinfo) \
-    sprintf(dueinfo->expl, "Unknown program context. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %u bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), "<UNKNOWN>", "<UNKNOWN>", (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
+    sprintf(dueinfo->expl, "Unknown program context. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %lu bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), "<UNKNOWN>", "<UNKNOWN>", (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
     sprintf(dueinfo->type_name, "%s", "<UNKNOWN>"); \
 
 #define MULTIPLE_VARIABLES_DUE_SPRINTF(fname, seqnum, dueinfo) \
-    sprintf(dueinfo->expl, "Multiple variables affected. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %u bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), "<MULTIPLE>", "<MULTIPLE>", (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
+    sprintf(dueinfo->expl, "Multiple variables affected. DUE in %s(), PC %p, bad addr %p, type %s, var %s. Demand addr: %p, %lu bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), "<MULTIPLE>", "<MULTIPLE>", (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
     sprintf(dueinfo->type_name, "%s", "<MULTIPLE>"); \
 
 #define DUE_IN_SPRINTF(fname, seqnum, variable, type, dueinfo) \
-    sprintf(dueinfo->expl, "DUE in %s(), PC %p, bad addr %p, type %s, var %s [%p, %p). Demand addr: %p, %u bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable), (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
+    sprintf(dueinfo->expl, "DUE in %s(), PC %p, bad addr %p, type %s, var %s [%p, %p). Demand addr: %p, %lu bytes. Memory type: %s\n", #fname, (void*)(DUE_INFO(fname, seqnum).tf.epc), (void*)(DUE_INFO(fname, seqnum).tf.badvaddr), #type, #variable, RECOVERY_ADDR(fname, variable), RECOVERY_END_ADDR(fname, variable), (void*)(DUE_INFO(fname, seqnum).demand_vaddr), DUE_INFO(fname, seqnum).load_size, (DUE_INFO(fname, seqnum).mem_type == 0 ? "data load" : "instruction fetch")); \
     sprintf(dueinfo->type_name, "%s", #type); \
 
 #define INJECT_DUE_INSTRUCTION(start_tick_offset, stop_tick_offset) \
@@ -207,12 +207,12 @@ extern void* _edata; //End of initialized data segment
 extern void* _fbss; //Front of uninitialized data segment
 extern void* _end; //End of uninitialized data segment... and address space overall?
 extern due_handler_t g_handler_stack[MAX_REGISTERED_HANDLERS];
-extern size_t g_handler_sp;
+extern int g_handler_sp;
 
 void dump_dueinfo(dueinfo_t* dueinfo);
 void push_user_memory_due_trap_handler(const char* name, user_defined_trap_handler fptr, void* pc_start, void* pc_end, due_region_strictness_t strict);
 void pop_user_memory_due_trap_handler();
-int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, short load_size, short load_dest_reg, short float_regfile, short load_message_offset, short mem_type);
+int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, size_t load_size, size_t load_dest_reg, int float_regfile, int load_message_offset, int mem_type);
 void dump_word(word_t* w);
 void dump_candidate_messages(due_candidates_t* cd);
 void dump_cacheline(due_cacheline_t* cl);
