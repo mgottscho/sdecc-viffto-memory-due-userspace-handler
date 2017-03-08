@@ -40,9 +40,11 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("---- Demand load info -----\n");
         if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 1) {
             printf("Demand load type: floating-point\n");
+            printf("TEST: load_dest_reg: %lu\n", dueinfo->load_dest_reg); //FIXME: fails in about 5/1000 cases with some weird garbage load_dest_reg value. Stack overflow or bad memcpy?
             printf("Demand load destination register: %s\n", g_float_regnames[dueinfo->load_dest_reg]);
         } else if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 0) {
             printf("Demand load type: integer\n");
+            printf("TEST: load_dest_reg: %lu\n", dueinfo->load_dest_reg); //FIXME: fails in about 5/1000 cases with some weird garbage load_dest_reg value. Stack overflow or bad memcpy?
             printf("Demand load destination register: %s\n", g_int_regnames[dueinfo->load_dest_reg]);
         } else { //Inst fetch
             printf("Demand load type: instruction fetch\n");
@@ -151,8 +153,10 @@ void pop_user_memory_due_trap_handler() {
 }
 
 int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, size_t load_size, size_t load_dest_reg, int float_regfile, int load_message_offset, int mem_type) {
-    if (g_handler_sp < 0 || g_handler_sp >= MAX_REGISTERED_HANDLERS)
+    if (g_handler_sp < 0) //probably our fault
         return -3;
+    if (g_handler_sp >= MAX_REGISTERED_HANDLERS) //probably user fault
+        return -2;
 
     //TODO FIXME: How to deal with memory errors in this function? Re-entrant, etc.
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
@@ -195,7 +199,7 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
     if (user_context.mem_type == 0 && (user_context.float_regfile != 0 && user_context.float_regfile != 1))
         user_context.valid = 0;
     
-    if (user_context.mem_type == 0 && ((user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR)))
+    if (user_context.mem_type == 0 && ((user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR))) //FIXME: load_dest_reg seems fine here, but gets clobbered sometimes later. Stack overflow somewhere? Or bad memcpy?
         user_context.valid = 0;
 
     //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
@@ -238,7 +242,7 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
                 return user_context.recovery_mode;
         } else {
             //Non-registered or out-of-bounds handler
-            user_context.recovery_mode = -2;
+            user_context.recovery_mode = -10; //FIXME: this is getting triggered about half the time. I suspect it is because the g_handler_stack is getting clobbered somehow, or the stuff in DUEinfo
             return user_context.recovery_mode;
         }
     }

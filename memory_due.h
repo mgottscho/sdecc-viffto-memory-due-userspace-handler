@@ -77,12 +77,12 @@ struct dueinfo {
 #define DECL_RECOVERY(scope, variable, type_name) \
     void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = NULL; \
     void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable) = NULL; \
-    char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[32] = #type_name; \
+    char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[NAME_SIZE] = #type_name; \
 
 #define DECL_RECOVERY_EXTERN(scope, variable, type_name) \
     extern void* VARIABLE_SCOPE_ADDR_PASTER(scope, variable); \
     extern void* VARIABLE_SCOPE_ADDR_END_PASTER(scope, variable); \
-    extern char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[32]; \
+    extern char VARIABLE_SCOPE_TYPE_NAME_PASTER(scope, variable)[NAME_SIZE]; \
 
 #define EN_RECOVERY(scope, variable, size) \
     VARIABLE_SCOPE_ADDR_PASTER(scope, variable) = (void*)(&variable); \
