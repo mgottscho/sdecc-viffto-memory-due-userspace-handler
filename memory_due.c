@@ -153,63 +153,84 @@ void pop_user_memory_due_trap_handler() {
 }
 
 int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long demand_vaddr, due_candidates_t* candidates, due_cacheline_t* cacheline, word_t* recovered_message, size_t load_size, size_t load_dest_reg, int float_regfile, int load_message_offset, int mem_type) {
-    if (g_handler_sp < 0) //probably our fault
-        return -3;
-    if (g_handler_sp >= MAX_REGISTERED_HANDLERS) //probably user fault
-        return -2;
+    if (g_handler_sp < 0 || g_handler_sp >= MAX_REGISTERED_HANDLERS) //probably our fault
+        return -4;
 
     //TODO FIXME: How to deal with memory errors in this function? Re-entrant, etc.
     static dueinfo_t user_context; //Static because we don't want this allocated on the stack, it is a large data structure
+    int success = 1;
 
-    //Init
-    user_context.valid = 1;
-    user_context.demand_vaddr = demand_vaddr;
+    //Init to safe values: passed up as arguments from the OS
+    user_context.valid = 0;
+    user_context.tf.badvaddr = 0;
+    user_context.tf.epc = 0;
+    user_context.tf.insn = 0;
+    user_context.tf.cause = 0;
+    //user_context.float_tf //nothing to do
+    user_context.demand_vaddr = 0;
+    user_context.candidates.size = 0;
+    user_context.cacheline.size = 0;
+    user_context.recovered_message.size = 0;
+    user_context.load_size = 0;
+    user_context.load_dest_reg = 0;
+    user_context.float_regfile = 0;
+    user_context.load_message_offset = 0;
+    user_context.mem_type = -1;
+
+    //Init to safe values: set by userspace
+    user_context.setup.name[0] = '\0';
+    user_context.setup.fptr = NULL;
+    user_context.setup.strict = 1;
+    user_context.setup.pc_start = NULL;
+    user_context.setup.pc_end = NULL;
+    user_context.setup.restart = 0;
+    user_context.setup.invocations = 0;
+    user_context.setup.handler_sp_when_invoked = 0;
+    user_context.recovered_load_value.size = 0;
     user_context.error_in_stack = 0;
     user_context.error_in_text = 0;
     user_context.error_in_data = 0;
     user_context.error_in_sdata = 0;
     user_context.error_in_bss = 0;
     user_context.error_in_heap = 0;
+    user_context.recovery_mode = -1;
+    user_context.type_name[0] = '\0';
+    user_context.expl[0] = '\0';
+
+    //Copy arguments from OS
+    success = success & ((tf && copy_trapframe(&user_context.tf, tf) == 0) ? 1 : 0); 
+    success = success & ((float_tf && copy_float_trapframe(&user_context.float_tf, float_tf) == 0) ? 1 : 0);
+    user_context.demand_vaddr = demand_vaddr;
+    success = success & ((candidates && copy_candidates(&user_context.candidates, candidates) == 0) ? 1 : 0);
+    success = success & ((cacheline && copy_cacheline(&user_context.cacheline, cacheline) == 0) ? 1 : 0);
+    success = success & ((copy_word(&user_context.recovered_message, recovered_message) == 0) ? 1 : 0);
     user_context.load_size = load_size;
     user_context.load_dest_reg = load_dest_reg;
     user_context.float_regfile = float_regfile;
     user_context.load_message_offset = load_message_offset;
-    user_context.type_name[0] = '\0';
-    user_context.expl[0] = '\0';
     user_context.mem_type = mem_type;
 
     //Copy DUE handler setup context
-    memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, NAME_SIZE);
+    memcpy(user_context.setup.name, g_handler_stack[g_handler_sp].name, NAME_SIZE-1);
+    user_context.setup.name[NAME_SIZE-1] = '\0';
     user_context.setup.fptr = g_handler_stack[g_handler_sp].fptr;
     user_context.setup.strict = g_handler_stack[g_handler_sp].strict;
     user_context.setup.pc_start = g_handler_stack[g_handler_sp].pc_start;
     user_context.setup.pc_end = g_handler_stack[g_handler_sp].pc_end;
     user_context.setup.restart = g_handler_stack[g_handler_sp].restart;
+    //user_context.setup.invocations //nothing to do, set by user-defined handler
+    user_context.setup.handler_sp_when_invoked = g_handler_sp;
 
-    copy_word(&user_context.recovered_message, recovered_message);
-    
-    user_context.recovery_mode = 1;
+    //Check arguments for correctness
+    success = success & ((user_context.mem_type == 0 || user_context.mem_type == 1) ? 1 : 0);
+    success = success & ((user_context.load_size <= sizeof(unsigned long)) ? 1 : 0);
+    success = success & ((user_context.float_regfile == 0 || user_context.float_regfile == 1) ? 1 : 0);
+    success = success & (((user_context.float_regfile == 0 && user_context.load_dest_reg <= NUM_GPR) || (user_context.float_regfile == 1 && user_context.load_dest_reg <= NUM_FPR)) ? 1 : 0);
 
-    if (user_context.mem_type != 0 && user_context.mem_type != 1)
-        user_context.valid = 0;
-
-    if (user_context.load_size > sizeof(unsigned long))
-        user_context.valid = 0;
-
-    if (user_context.mem_type == 0 && (user_context.float_regfile != 0 && user_context.float_regfile != 1))
-        user_context.valid = 0;
-    
-    if (user_context.mem_type == 0 && ((user_context.float_regfile == 1 && user_context.load_dest_reg > NUM_FPR) || (user_context.float_regfile == 0 && user_context.load_dest_reg > NUM_GPR))) //FIXME: load_dest_reg seems fine here, but gets clobbered sometimes later. Stack overflow somewhere? Or bad memcpy?
-        user_context.valid = 0;
-
-    //Recovered load value should be re-computed by recovery policy for its book-keeping purposes
-    if (load_value_from_message(recovered_message, &user_context.recovered_load_value, cacheline, load_size, load_message_offset))
-        user_context.valid = 0;
-
-    if (tf && !copy_trapframe(&(user_context.tf), tf)) {
-        //Analyze trap frame, determine in which segment the memory DUE occured
-        void* badvaddr = (void*)(tf->badvaddr);
-        if (badvaddr >= (void*)(tf->gpr[2]) && badvaddr < (void*)(tf->gpr[2]+64)) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +64 bytes from the tf's sp (because it grows down)
+    //Analyze trap frame, determine in which segment the memory DUE occured
+    if (success) {
+        void* badvaddr = (void*)(user_context.tf.badvaddr);
+        if (badvaddr >= (void*)(user_context.tf.gpr[2]) && badvaddr < (void*)(user_context.tf.gpr[2]+64)) //gpr[2] is sp. TODO: how to find size of stack frame dynamically, or otherwise find the base of stack? Right now we look 0 to +64 bytes from the tf's sp (because it grows down)
             user_context.error_in_stack = 1;
         if (badvaddr >= (void*)(&_ftext) && badvaddr < (void*)(&_etext))
             user_context.error_in_text = 1;
@@ -220,35 +241,34 @@ int memory_due_handler_entry(trapframe_t* tf, float_trapframe_t* float_tf, long 
         if (badvaddr >= (void*)(&_fbss) && badvaddr < (void*)(&_end))
             user_context.error_in_bss = 1;
         user_context.error_in_heap = 0; //TODO
-    } else
-        user_context.valid = 0;
+    }
+
+    user_context.valid = success;
     
-    if (!float_tf || copy_float_trapframe(&(user_context.float_tf), float_tf))
-        user_context.valid = 0;
-
-    if (!(candidates && !copy_candidates(&(user_context.candidates), candidates)))
-        user_context.valid = 0;
-
-    if (!(cacheline && !copy_cacheline(&(user_context.cacheline), cacheline))) 
-        user_context.valid = 0;
-        
     //Call user handler if we are not in strict mode or PC in error occurred in the registered PC range
     if (user_context.valid == 1) {
-        if (g_handler_stack[g_handler_sp].fptr &&
-           (g_handler_stack[g_handler_sp].strict == STRICTNESS_DEFAULT || 
-           ((void*)(tf->epc) >= g_handler_stack[g_handler_sp].pc_start && (void*)(tf->epc) < g_handler_stack[g_handler_sp].pc_end))) {
-                user_context.recovery_mode = g_handler_stack[g_handler_sp].fptr(&user_context);
+        user_defined_trap_handler fptr = user_context.setup.fptr;
+        void* epc = (void*)(user_context.tf.epc);
+        void* pc_start = (void*)(user_context.setup.pc_start);
+        void* pc_end = (void*)(user_context.setup.pc_end);
+        due_region_strictness_t strict = user_context.setup.strict;
+        if (fptr) {
+            if (strict == STRICTNESS_DEFAULT || (epc >= pc_start && epc < pc_end)) {
+                user_context.recovery_mode = fptr(&user_context);
                 copy_word(recovered_message, &(user_context.recovered_message));
                 return user_context.recovery_mode;
+            } else {
+                return -3; //Out-of-bounds handler
+            }   
         } else {
-            //Non-registered or out-of-bounds handler
-            user_context.recovery_mode = -10; //FIXME: this is getting triggered about half the time. I suspect it is because the g_handler_stack is getting clobbered somehow, or the stuff in DUEinfo
+            //If we got here but fptr is NULL, then user did not successfully register handler..
+            user_context.recovery_mode = -2; 
             return user_context.recovery_mode;
         }
     }
 
     //Handler problem, not app's fault
-    user_context.recovery_mode = -3;
+    user_context.recovery_mode = -4;
     return user_context.recovery_mode;
 }
 
@@ -284,12 +304,13 @@ void dump_cacheline(due_cacheline_t* cl) {
 
 void dump_setup(due_handler_t *setup) {
    printf("DUE handler name: %s\n", setup->name);
-   printf("DUE handler user function: %p\n", setup->fptr); 
    printf("Handler invocations: %lu", setup->invocations);
    if (setup->invocations > 1)
        printf(" (ONLY REPORTING LAST INVOCATION)");
    printf("\n");
-   printf("DUE handling strictness: %d\n", setup->strict); 
+   printf("DUE handler stack depth when invoked: %d\n", setup->handler_sp_when_invoked);
+   printf("DUE handler user function: %p\n", setup->fptr); 
+   printf("DUE handling strictness: %s\n", (setup->strict ? "STRICT" : "DEFAULT")); 
    printf("DUE PC region start: %p\n", setup->pc_start);
    printf("DUE PC region end: %p\n", setup->pc_end);
    printf("DUE region restart: %d\n", setup->restart);

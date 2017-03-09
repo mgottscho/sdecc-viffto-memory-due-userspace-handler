@@ -36,30 +36,35 @@ struct due_handler {
     void* pc_end;
     int restart;
     unsigned long invocations;
+    int handler_sp_when_invoked;
 };
 
 struct dueinfo {
     int valid;
+
+    //Passed up as arguments from the OS
     trapframe_t tf;
     float_trapframe_t float_tf;
     long demand_vaddr;
+    due_candidates_t candidates;
+    due_cacheline_t cacheline;
+    word_t recovered_message; //Can be modified by user code
+    size_t load_size;
+    size_t load_dest_reg;
+    int float_regfile;
+    int load_message_offset;
+    int mem_type;
+
+    //Set by userspace
+    struct due_handler setup;
+    word_t recovered_load_value;
     int error_in_stack;
     int error_in_text;
     int error_in_data;
     int error_in_sdata;
     int error_in_bss;
     int error_in_heap;
-    due_candidates_t candidates;
-    due_cacheline_t cacheline;
-    struct due_handler setup;
-    word_t recovered_message;
-    word_t recovered_load_value;
-    size_t load_size;
-    size_t load_dest_reg;
-    int float_regfile;
-    int load_message_offset;
     int recovery_mode;
-    int mem_type;
     char type_name[NAME_SIZE];
     char expl[EXPL_SIZE]; 
 };
@@ -126,50 +131,47 @@ struct dueinfo {
     extern dueinfo_t DUE_INFO(fname, seqnum);
 
 #define COPY_DUE_INFO(fname, seqnum, src) \
+    DUE_INFO(fname, seqnum).valid = 0; \
     if (src) { \
-        DUE_INFO(fname, seqnum).valid = src->valid; \
-        copy_trapframe(&(DUE_INFO(fname, seqnum).tf), &(src->tf)); \
-        copy_float_trapframe(&(DUE_INFO(fname, seqnum).float_tf), &(src->float_tf)); \
+        int success = 1; \
+        success = success & ((copy_trapframe(&(DUE_INFO(fname, seqnum).tf), &(src->tf)) == 0) ? 1 : 0); \
+        success = success & ((copy_float_trapframe(&(DUE_INFO(fname, seqnum).float_tf), &(src->float_tf)) == 0) ? 1 : 0); \
         DUE_INFO(fname, seqnum).demand_vaddr = src->demand_vaddr; \
-        DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
-        DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
-        DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
-        DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
-        DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
-        DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
-        for (int i = 0; i < NAME_SIZE; i++) { \
-            DUE_INFO(fname, seqnum).setup.name[i] = src->setup.name[i]; \
-            if (src->setup.name[i] == '\0') \
-                break; \
-        } \
+        success = success & ((copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)) == 0) ? 1 : 0); \
+        success = success & ((copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)) == 0)? 1 : 0); \
+        success = success & ((copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)) == 0) ? 1 : 0); \
+        DUE_INFO(fname, seqnum).load_size = src->load_size; \
+        DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
+        DUE_INFO(fname, seqnum).float_regfile = src->float_regfile; \
+        DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
+        DUE_INFO(fname, seqnum).mem_type = src->mem_type; \
+        \
+        memcpy(DUE_INFO(fname, seqnum).setup.name, src->setup.name, NAME_SIZE-1); \
+        DUE_INFO(fname, seqnum).setup.name[NAME_SIZE-1] = '\0'; \
         DUE_INFO(fname, seqnum).setup.fptr = src->setup.fptr; \
         DUE_INFO(fname, seqnum).setup.strict = src->setup.strict; \
         DUE_INFO(fname, seqnum).setup.pc_start = src->setup.pc_start; \
         DUE_INFO(fname, seqnum).setup.pc_end = src->setup.pc_end; \
         DUE_INFO(fname, seqnum).setup.restart = src->setup.restart; \
         DUE_INFO(fname, seqnum).setup.invocations = invocations; \
-        copy_candidates(&(DUE_INFO(fname, seqnum).candidates), &(src->candidates)); \
-        copy_cacheline(&(DUE_INFO(fname, seqnum).cacheline), &(src->cacheline)); \
-        copy_word(&(DUE_INFO(fname, seqnum).recovered_message), &(src->recovered_message)); \
-        copy_word(&(DUE_INFO(fname, seqnum).recovered_load_value), &(src->recovered_load_value)); \
-        DUE_INFO(fname, seqnum).load_size = src->load_size; \
-        DUE_INFO(fname, seqnum).load_dest_reg = src->load_dest_reg; \
-        DUE_INFO(fname, seqnum).float_regfile = src->float_regfile; \
-        DUE_INFO(fname, seqnum).load_message_offset = src->load_message_offset; \
+        DUE_INFO(fname, seqnum).setup.handler_sp_when_invoked = src->setup.handler_sp_when_invoked; \
+        \
+        success = success & ((copy_word(&(DUE_INFO(fname, seqnum).recovered_load_value), &src->recovered_load_value) == 0) ? 1 : 0); \
+        \
+        DUE_INFO(fname, seqnum).error_in_stack = src->error_in_stack; \
+        DUE_INFO(fname, seqnum).error_in_text = src->error_in_text; \
+        DUE_INFO(fname, seqnum).error_in_data = src->error_in_data; \
+        DUE_INFO(fname, seqnum).error_in_sdata = src->error_in_sdata; \
+        DUE_INFO(fname, seqnum).error_in_bss = src->error_in_bss; \
+        DUE_INFO(fname, seqnum).error_in_heap = src->error_in_heap; \
         DUE_INFO(fname, seqnum).recovery_mode = src->recovery_mode; \
-        DUE_INFO(fname, seqnum).mem_type = src->mem_type; \
-        for (int i = 0; i < NAME_SIZE; i++) { \
-            DUE_INFO(fname, seqnum).type_name[i] = src->type_name[i]; \
-            if (src->type_name[i] == '\0') \
-                break; \
-        } \
-        for (int i = 0; i < EXPL_SIZE; i++) { \
-            DUE_INFO(fname, seqnum).expl[i] = src->expl[i]; \
-            if (src->expl[i] == '\0') \
-                break; \
-        } \
-    } else { \
-        DUE_INFO(fname, seqnum).valid = 0; \
+        memcpy(DUE_INFO(fname, seqnum).type_name, src->type_name, NAME_SIZE-1); \
+        DUE_INFO(fname, seqnum).type_name[NAME_SIZE-1] = '\0'; \
+        memcpy(DUE_INFO(fname, seqnum).expl, src->expl, EXPL_SIZE-1); \
+        DUE_INFO(fname, seqnum).expl[EXPL_SIZE-1] = '\0'; \
+        \
+        if (success == 1) \
+            DUE_INFO(fname, seqnum).valid = 1; \
     }
 
 #define DUE_IN(fname, seqnum, variable) \
