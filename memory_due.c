@@ -40,11 +40,9 @@ void dump_dueinfo(dueinfo_t* dueinfo) {
         printf("---- Demand load info -----\n");
         if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 1) {
             printf("Demand load type: floating-point\n");
-            printf("TEST: load_dest_reg: %lu\n", dueinfo->load_dest_reg); //FIXME: fails in about 5/1000 cases with some weird garbage load_dest_reg value. Stack overflow or bad memcpy?
             printf("Demand load destination register: %s\n", g_float_regnames[dueinfo->load_dest_reg]);
         } else if (dueinfo->mem_type == 0 && dueinfo->float_regfile == 0) {
             printf("Demand load type: integer\n");
-            printf("TEST: load_dest_reg: %lu\n", dueinfo->load_dest_reg); //FIXME: fails in about 5/1000 cases with some weird garbage load_dest_reg value. Stack overflow or bad memcpy?
             printf("Demand load destination register: %s\n", g_int_regnames[dueinfo->load_dest_reg]);
         } else { //Inst fetch
             printf("Demand load type: instruction fetch\n");
