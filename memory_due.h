@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+#include <string.h>
 #include <stdio.h>
 #include "minipk.h"
 
