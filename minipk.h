@@ -35,7 +35,7 @@ typedef struct {
 
 //Originally defined in riscv-pk/pk/pk.h
 typedef struct {
-    char bytes[MAX_WORD_SIZE]; 
+    unsigned char bytes[MAX_WORD_SIZE]; 
     size_t size;
 } word_t;
 
