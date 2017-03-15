@@ -60,8 +60,6 @@ int copy_candidates(due_candidates_t* dest, due_candidates_t* src); //Originally
 int copy_trapframe(trapframe_t* dest, trapframe_t* src); //Originally defined in riscv-pk/pk/pk.h
 int copy_float_trapframe(float_trapframe_t* dest, float_trapframe_t* src); //Originally defined in riscv-pk/pk/pk.h
 int load_value_from_message(word_t* recovered_message, word_t* load_value, due_cacheline_t* cl, size_t load_size, int offset); //Originally defined in riscv-pk/pk/pk.h
-int get_float_register(size_t frd, unsigned long* raw_value); //Originally defined in riscv-pk/pk/pk.h
-int set_float_register(size_t frd, unsigned long raw_value); //Originally defined in riscv-pk/pk/pk.h
 
 extern const char* g_int_regnames[];
 extern const char* g_float_regnames[];
