@@ -1,3 +1,9 @@
+/*
+ * Modifications of riscv ld script to suit Software-Defined Error-Localizing Codes (SDELCs) project
+ * Authors: Irina Alam and Mark Gottscho
+ * Email: irina1@ucla.edu, mgottscho@ucla.edu
+ */
+
 /*======================================================================*/
 /* Default maven linker script                                          */
 /*======================================================================*/
